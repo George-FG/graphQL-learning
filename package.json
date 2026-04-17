@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "@apollo/server": "5.4.0",
+    "@as-integrations/express5": "^1.1.2",
+    "cors": "2.8.6",
+    "express": "5.2.1",
+    "graphql": "16.12.0",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "build": "rimraf ./dist && tsc && copyfiles --up 1 **/*.graphql ./dist ",
+    "start": "npm run build && node dist/index.js"
+  },
+  "devDependencies": {
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.6",
+    "@types/node": "^22.8.6",
+    "copyfiles": "^2.4.1",
+    "rimraf": "^6.1.3"
+  }
+}

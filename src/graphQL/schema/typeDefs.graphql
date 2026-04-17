@@ -1,0 +1,10 @@
+type Query {
+  helloWorld: String!
+  getPersonByID(ID: ID!): Person!
+}
+
+type Person {
+  ID: ID!
+  Name: String!
+  NumFish: Int
+}
