@@ -43,12 +43,17 @@ const GEO_CANVAS_PADDING = 200;
 const MAP_NODE_ID = "__geo_map_background__";
 const MAP_IMAGE_URL = "/maps/region-map.png";
 
+
+const offset = {
+    lat: 0.02,
+    lng: 0,
+}
 // Calibrate these bounds to match your background image extent.
 const MAP_GEO_BOUNDS = {
-  minLat: 52.75700,
-  maxLat: 53.0210,
-  minLng: -1.25200,
-  maxLng: -0.76280,
+  minLat: 52.75700 + offset.lat,
+  maxLat: 53.0310 + offset.lat,
+  minLng: -1.25200 + offset.lng,
+  maxLng: -0.76280 + offset.lng,
 };
 
 function JourneyNode({ data }: NodeProps<JourneyNodeData>) {
