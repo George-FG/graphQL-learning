@@ -8,8 +8,9 @@ datasource db {
 
 model User {
   id      BigInt @id @default(autoincrement())
-  name    String
+  username    String @unique
   numFish Int?   @map("num_fish")
-
+  passwordHash String @map("password_hash")
+  
   @@map("users")
 }
