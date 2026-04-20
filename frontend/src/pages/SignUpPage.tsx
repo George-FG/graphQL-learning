@@ -14,7 +14,6 @@ export default function SignUpPage() {
 
   const [username, setUsernameState] = useState("");
   const [password, setPassword] = useState("");
-  const [numFish, setNumFish] = useState("");
 
   const [signUp, { loading, error }] = useMutation<
     SignUpResponse,
@@ -24,14 +23,10 @@ export default function SignUpPage() {
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const parsedNumFish = Number(numFish);
-    if (!Number.isInteger(parsedNumFish) || parsedNumFish < 0) return;
-
     const result = await signUp({
       variables: {
         username,
         password,
-        numFish: parsedNumFish,
       },
     });
 
@@ -73,17 +68,6 @@ export default function SignUpPage() {
           />
         </label>
 
-        <label className="field">
-          <span>Number of fish owned</span>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            value={numFish}
-            onChange={(e) => setNumFish(e.target.value)}
-            required
-          />
-        </label>
 
         <button className="primary-button" type="submit" disabled={loading}>
           {loading ? "Creating account..." : "Sign Up"}

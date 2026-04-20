@@ -5,7 +5,6 @@ export const ME_QUERY = gql`
     me {
       ID
       username
-      numFish
     }
   }
 `;
