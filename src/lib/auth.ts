@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "crypto";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import type { IncomingHttpHeaders } from "http";
 
@@ -6,17 +7,14 @@ export type AuthTokenPayload = {
   username: string;
 };
 
-
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET as string;
-const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET as string;
 
 if (!ACCESS_SECRET) {
   throw new Error("Missing JWT_ACCESS_SECRET");
 }
 
-if (!REFRESH_SECRET) {
-  throw new Error("Missing JWT_REFRESH_SECRET");
-}
+export const ACCESS_TOKEN_TTL = "15m";
+export const REFRESH_TOKEN_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
 function isAuthTokenPayload(value: unknown): value is AuthTokenPayload {
   if (typeof value !== "object" || value === null) {
@@ -44,11 +42,7 @@ function parseVerifiedToken(decoded: string | JwtPayload): AuthTokenPayload {
 }
 
 export function signAccessToken(payload: AuthTokenPayload) {
-  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: "15m" });
-}
-
-export function signRefreshToken(payload: AuthTokenPayload) {
-  return jwt.sign(payload, REFRESH_SECRET, { expiresIn: "14d" });
+  return jwt.sign(payload, ACCESS_SECRET, { expiresIn: ACCESS_TOKEN_TTL });
 }
 
 export function verifyAccessToken(token: string): AuthTokenPayload {
@@ -56,9 +50,12 @@ export function verifyAccessToken(token: string): AuthTokenPayload {
   return parseVerifiedToken(decoded);
 }
 
-export function verifyRefreshToken(token: string): AuthTokenPayload {
-  const decoded = jwt.verify(token, REFRESH_SECRET);
-  return parseVerifiedToken(decoded);
+export function generateRefreshToken() {
+  return randomBytes(48).toString("base64url");
+}
+
+export function hashRefreshToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }
 
 export function getBearerToken(headers: IncomingHttpHeaders) {

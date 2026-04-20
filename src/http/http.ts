@@ -8,17 +8,7 @@ import { getAuthUserFromHeaders } from "../lib/auth";
 
 export const runHttpServer = async (server: ApolloServer<GraphQLContext>) => {
   const app = express();
-  const port = Number(process.env.PORT ?? 3000);
-  const corsOrigin = process.env.CORS_ORIGIN ?? "http://localhost:5173";
-
-  app.disable("x-powered-by");
-
-  app.use((_req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("Referrer-Policy", "same-origin");
-    next();
-  });
+  const port = 3000;
 
   app.get("/", (_req, res) => {
     res.send("Hello World!");
@@ -29,10 +19,10 @@ export const runHttpServer = async (server: ApolloServer<GraphQLContext>) => {
   app.use(
     "/graphql",
     cors({
-      origin: corsOrigin,
+      origin: "http://localhost:5173",
       credentials: true,
     }),
-    express.json({ limit: "16kb" }),
+    express.json(),
     expressMiddleware(server, {
       context: async ({ req, res }) => ({
         req,
@@ -44,7 +34,7 @@ export const runHttpServer = async (server: ApolloServer<GraphQLContext>) => {
 
   await new Promise<void>((resolve) => {
     app.listen(port, () => {
-      console.log(`HTTP server ready at http://localhost:${port}/graphql`);
+      console.log(`Example app listening on port ${port}`);
       resolve();
     });
   });

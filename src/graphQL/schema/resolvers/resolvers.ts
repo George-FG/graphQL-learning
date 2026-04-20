@@ -2,10 +2,10 @@ import bcrypt from "bcrypt";
 import { prisma } from "../../../lib/prisma";
 import type { Resolvers } from "@generated/generated";
 import {
+  REFRESH_TOKEN_TTL_MS,
+  generateRefreshToken,
+  hashRefreshToken,
   signAccessToken,
-  signRefreshToken,
-  verifyAccessToken,
-  verifyRefreshToken,
 } from "../../../lib/auth";
 import type { GraphQLContext } from "@generated/context";
 
@@ -15,7 +15,7 @@ const refreshCookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
   sameSite: "lax" as const,
-  maxAge: 14 * 24 * 60 * 60 * 1000,
+  maxAge: REFRESH_TOKEN_TTL_MS,
   path: "/",
 };
 
@@ -31,9 +31,42 @@ function toGraphQLUser(user: {
   };
 }
 
+async function createSession(
+  user: {
+    id: bigint;
+    username: string;
+    numFish: number | null;
+  },
+  context: GraphQLContext
+) {
+  const accessToken = signAccessToken({
+    userId: user.id.toString(),
+    username: user.username,
+  });
+
+  const rawRefreshToken = generateRefreshToken();
+  const tokenHash = hashRefreshToken(rawRefreshToken);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+
+  await prisma.userSession.create({
+    data: {
+      userId: user.id,
+      tokenHash,
+      expiresAt,
+    },
+  });
+
+  context.res.cookie(REFRESH_COOKIE_NAME, rawRefreshToken, refreshCookieOptions);
+
+  return {
+    accessToken,
+    User: toGraphQLUser(user),
+  };
+}
+
 export const resolvers: Resolvers<GraphQLContext> = {
   Query: {
-    getUserByID: async (_parent, args, _context) => {
+    getUserByID: async (_parent, args) => {
       const user = await prisma.user.findUnique({
         where: {
           id: BigInt(args.ID),
@@ -48,39 +81,31 @@ export const resolvers: Resolvers<GraphQLContext> = {
     },
 
     me: async (_parent, _args, context) => {
-      const authHeader = context.req.headers.authorization;
-
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      if (!context.authUser) {
         return undefined;
       }
 
-      const token = authHeader.slice("Bearer ".length);
+      const user = await prisma.user.findUnique({
+        where: {
+          id: BigInt(context.authUser.userId),
+        },
+      });
 
-      try {
-        const payload = verifyAccessToken(token);
-
-        const user = await prisma.user.findUnique({
-          where: {
-            id: BigInt(payload.userId),
-          },
-        });
-
-        if (!user) {
-          return undefined;
-        }
-
-        return toGraphQLUser(user);
-      } catch {
+      if (!user) {
         return undefined;
       }
+
+      return toGraphQLUser(user);
     },
   },
 
   Mutation: {
     signUp: async (_parent, args, context) => {
+      const username = args.username.trim();
+
       const existingUser = await prisma.user.findUnique({
         where: {
-          username: args.username,
+          username,
         },
       });
 
@@ -88,40 +113,25 @@ export const resolvers: Resolvers<GraphQLContext> = {
         throw new Error("Username already exists");
       }
 
-      const passwordHash = await bcrypt.hash(args.password, 10);
+      const passwordHash = await bcrypt.hash(args.password, 12);
 
       const user = await prisma.user.create({
         data: {
-          username: args.username,
+          username,
           passwordHash,
           numFish: args.numFish,
         },
       });
 
-      const payload = {
-        userId: user.id.toString(),
-        username: user.username,
-      };
-
-      const accessToken = signAccessToken(payload);
-      const refreshToken = signRefreshToken(payload);
-
-      context.res.cookie(
-        REFRESH_COOKIE_NAME,
-        refreshToken,
-        refreshCookieOptions
-      );
-
-      return {
-        accessToken,
-        User: toGraphQLUser(user),
-      };
+      return createSession(user, context);
     },
 
     login: async (_parent, args, context) => {
+      const username = args.username.trim();
+
       const user = await prisma.user.findUnique({
         where: {
-          username: args.username,
+          username,
         },
       });
 
@@ -138,74 +148,95 @@ export const resolvers: Resolvers<GraphQLContext> = {
         throw new Error("Invalid username or password");
       }
 
-      const payload = {
-        userId: user.id.toString(),
-        username: user.username,
-      };
-
-      const accessToken = signAccessToken(payload);
-      const refreshToken = signRefreshToken(payload);
-
-      context.res.cookie(
-        REFRESH_COOKIE_NAME,
-        refreshToken,
-        refreshCookieOptions
-      );
-
-      return {
-        accessToken,
-        User: toGraphQLUser(user),
-      };
+      return createSession(user, context);
     },
 
     refreshSession: async (_parent, _args, context) => {
-      const refreshToken = context.req.cookies?.[REFRESH_COOKIE_NAME] as
+      const rawRefreshToken = context.req.cookies?.[REFRESH_COOKIE_NAME] as
         | string
         | undefined;
 
-      if (!refreshToken) {
+      if (!rawRefreshToken) {
         throw new Error("No refresh token");
       }
 
-      let payload: { userId: string; username: string };
+      const tokenHash = hashRefreshToken(rawRefreshToken);
 
-      try {
-        payload = verifyRefreshToken(refreshToken);
-      } catch {
-        throw new Error("Invalid refresh token");
-      }
-
-      const user = await prisma.user.findUnique({
+      const session = await prisma.userSession.findUnique({
         where: {
-          id: BigInt(payload.userId),
+          tokenHash,
+        },
+        include: {
+          user: true,
         },
       });
 
-      if (!user) {
-        throw new Error("User not found");
+      if (!session) {
+        context.res.clearCookie(REFRESH_COOKIE_NAME, { path: "/" });
+        throw new Error("Invalid refresh token");
       }
 
-      const newPayload = {
-        userId: user.id.toString(),
-        username: user.username,
-      };
+      if (session.revokedAt) {
+        context.res.clearCookie(REFRESH_COOKIE_NAME, { path: "/" });
+        throw new Error("Session revoked");
+      }
 
-      const accessToken = signAccessToken(newPayload);
-      const newRefreshToken = signRefreshToken(newPayload);
+      if (session.expiresAt <= new Date()) {
+        await prisma.userSession.delete({
+          where: {
+            tokenHash,
+          },
+        });
+
+        context.res.clearCookie(REFRESH_COOKIE_NAME, { path: "/" });
+        throw new Error("Refresh token expired");
+      }
+
+      const nextRawRefreshToken = generateRefreshToken();
+      const nextTokenHash = hashRefreshToken(nextRawRefreshToken);
+      const nextExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+
+      await prisma.userSession.update({
+        where: {
+          tokenHash,
+        },
+        data: {
+          tokenHash: nextTokenHash,
+          expiresAt: nextExpiresAt,
+          lastUsedAt: new Date(),
+        },
+      });
 
       context.res.cookie(
         REFRESH_COOKIE_NAME,
-        newRefreshToken,
+        nextRawRefreshToken,
         refreshCookieOptions
       );
 
       return {
-        accessToken,
-        User: toGraphQLUser(user),
+        accessToken: signAccessToken({
+          userId: session.user.id.toString(),
+          username: session.user.username,
+        }),
+        User: toGraphQLUser(session.user),
       };
     },
 
     logout: async (_parent, _args, context) => {
+      const rawRefreshToken = context.req.cookies?.[REFRESH_COOKIE_NAME] as
+        | string
+        | undefined;
+
+      if (rawRefreshToken) {
+        const tokenHash = hashRefreshToken(rawRefreshToken);
+
+        await prisma.userSession.deleteMany({
+          where: {
+            tokenHash,
+          },
+        });
+      }
+
       context.res.clearCookie(REFRESH_COOKIE_NAME, {
         path: "/",
       });

@@ -1,5 +1,12 @@
 import { useApolloClient } from "@apollo/client/react";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { REFRESH_SESSION_MUTATION } from "../graphql/mutations";
 import { clearUsername, saveUsername } from "../lib/auth";
 import { clearAccessToken, setAccessToken } from "../lib/session";
@@ -25,8 +32,15 @@ export function AuthBootstrapProvider({
   const client = useApolloClient();
   const [ready, setReady] = useState(false);
   const [username, setUsernameState] = useState<string | null>(null);
+  const hasBootstrappedRef = useRef(false);
 
   useEffect(() => {
+    if (hasBootstrappedRef.current) {
+      return;
+    }
+
+    hasBootstrappedRef.current = true;
+
     const bootstrap = async () => {
       try {
         const result = await client.mutate<RefreshSessionResponse>({
