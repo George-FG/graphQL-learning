@@ -29,3 +29,31 @@ model UserSession {
   @@index([expiresAt])
   @@map("user_sessions")
 }
+
+
+model Location {
+  id       String @id
+  name     String
+  lat      Float?
+  lng      Float?
+  type     String?
+
+  outgoing Connection[] @relation("FromLocation")
+  incoming Connection[] @relation("ToLocation")
+}
+
+model Connection {
+  id            String @id
+  fromId        String
+  toId          String
+  transportType String?
+  routeId       String?
+  routeName     String?
+  duration      Int?
+
+  from Location @relation("FromLocation", fields: [fromId], references: [id], onDelete: Cascade)
+  to   Location @relation("ToLocation", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@index([fromId])
+  @@index([toId])
+}

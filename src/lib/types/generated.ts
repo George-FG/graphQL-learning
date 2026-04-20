@@ -22,18 +22,40 @@ export type AuthResult = {
   accessToken: Scalars['String']['output'];
 };
 
-export type JourneyGraph = {
-  __typename?: 'JourneyGraph';
-  edges: Array<TransportEdge>;
-  end: Scalars['String']['output'];
-  nodes: Array<LocationNode>;
-  start: Scalars['String']['output'];
+export type Connection = {
+  __typename?: 'Connection';
+  duration?: Maybe<Scalars['Int']['output']>;
+  fromId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  routeId?: Maybe<Scalars['String']['output']>;
+  routeName?: Maybe<Scalars['String']['output']>;
+  toId: Scalars['ID']['output'];
+  transportType?: Maybe<Scalars['String']['output']>;
 };
 
-export type LocationNode = {
-  __typename?: 'LocationNode';
+export type JourneyGraph = {
+  __typename?: 'JourneyGraph';
+  edges: Array<Connection>;
+  end: Location;
+  nodes: Array<Location>;
+  route: JourneyRoute;
+  start: Location;
+};
+
+export type JourneyRoute = {
+  __typename?: 'JourneyRoute';
+  edges: Array<Connection>;
+  nodes: Array<Location>;
+  totalDuration?: Maybe<Scalars['Int']['output']>;
+};
+
+export type Location = {
+  __typename?: 'Location';
   id: Scalars['ID']['output'];
+  lat?: Maybe<Scalars['Float']['output']>;
+  lng?: Maybe<Scalars['Float']['output']>;
   name: Scalars['String']['output'];
+  type?: Maybe<Scalars['String']['output']>;
 };
 
 export type Mutation = {
@@ -61,6 +83,7 @@ export type Query = {
   getUserByID: User;
   journeyGraph: JourneyGraph;
   me?: Maybe<User>;
+  searchLocations: Array<Location>;
 };
 
 
@@ -70,16 +93,13 @@ export type QueryGetUserByIdArgs = {
 
 
 export type QueryJourneyGraphArgs = {
-  end: Scalars['String']['input'];
-  start: Scalars['String']['input'];
+  endId: Scalars['ID']['input'];
+  startId: Scalars['ID']['input'];
 };
 
-export type TransportEdge = {
-  __typename?: 'TransportEdge';
-  id: Scalars['ID']['output'];
-  label: Scalars['String']['output'];
-  source: Scalars['ID']['output'];
-  target: Scalars['ID']['output'];
+
+export type QuerySearchLocationsArgs = {
+  query: Scalars['String']['input'];
 };
 
 export type User = {
@@ -163,13 +183,16 @@ export type DirectiveResolverFn<TResult = Record<PropertyKey, never>, TParent = 
 export type ResolversTypes = {
   AuthResult: ResolverTypeWrapper<AuthResult>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  Connection: ResolverTypeWrapper<Connection>;
+  Float: ResolverTypeWrapper<Scalars['Float']['output']>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
+  Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   JourneyGraph: ResolverTypeWrapper<JourneyGraph>;
-  LocationNode: ResolverTypeWrapper<LocationNode>;
+  JourneyRoute: ResolverTypeWrapper<JourneyRoute>;
+  Location: ResolverTypeWrapper<Location>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
-  TransportEdge: ResolverTypeWrapper<TransportEdge>;
   User: ResolverTypeWrapper<User>;
 };
 
@@ -177,13 +200,16 @@ export type ResolversTypes = {
 export type ResolversParentTypes = {
   AuthResult: AuthResult;
   Boolean: Scalars['Boolean']['output'];
+  Connection: Connection;
+  Float: Scalars['Float']['output'];
   ID: Scalars['ID']['output'];
+  Int: Scalars['Int']['output'];
   JourneyGraph: JourneyGraph;
-  LocationNode: LocationNode;
+  JourneyRoute: JourneyRoute;
+  Location: Location;
   Mutation: Record<PropertyKey, never>;
   Query: Record<PropertyKey, never>;
   String: Scalars['String']['output'];
-  TransportEdge: TransportEdge;
   User: User;
 };
 
@@ -192,16 +218,36 @@ export type AuthResultResolvers<ContextType = any, ParentType extends ResolversP
   accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
 
-export type JourneyGraphResolvers<ContextType = any, ParentType extends ResolversParentTypes['JourneyGraph'] = ResolversParentTypes['JourneyGraph']> = {
-  edges?: Resolver<Array<ResolversTypes['TransportEdge']>, ParentType, ContextType>;
-  end?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  nodes?: Resolver<Array<ResolversTypes['LocationNode']>, ParentType, ContextType>;
-  start?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+export type ConnectionResolvers<ContextType = any, ParentType extends ResolversParentTypes['Connection'] = ResolversParentTypes['Connection']> = {
+  duration?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  fromId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  routeId?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  routeName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  toId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  transportType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
-export type LocationNodeResolvers<ContextType = any, ParentType extends ResolversParentTypes['LocationNode'] = ResolversParentTypes['LocationNode']> = {
+export type JourneyGraphResolvers<ContextType = any, ParentType extends ResolversParentTypes['JourneyGraph'] = ResolversParentTypes['JourneyGraph']> = {
+  edges?: Resolver<Array<ResolversTypes['Connection']>, ParentType, ContextType>;
+  end?: Resolver<ResolversTypes['Location'], ParentType, ContextType>;
+  nodes?: Resolver<Array<ResolversTypes['Location']>, ParentType, ContextType>;
+  route?: Resolver<ResolversTypes['JourneyRoute'], ParentType, ContextType>;
+  start?: Resolver<ResolversTypes['Location'], ParentType, ContextType>;
+};
+
+export type JourneyRouteResolvers<ContextType = any, ParentType extends ResolversParentTypes['JourneyRoute'] = ResolversParentTypes['JourneyRoute']> = {
+  edges?: Resolver<Array<ResolversTypes['Connection']>, ParentType, ContextType>;
+  nodes?: Resolver<Array<ResolversTypes['Location']>, ParentType, ContextType>;
+  totalDuration?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+};
+
+export type LocationResolvers<ContextType = any, ParentType extends ResolversParentTypes['Location'] = ResolversParentTypes['Location']> = {
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  lat?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
+  lng?: Resolver<Maybe<ResolversTypes['Float']>, ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  type?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
 };
 
 export type MutationResolvers<ContextType = any, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = {
@@ -213,15 +259,9 @@ export type MutationResolvers<ContextType = any, ParentType extends ResolversPar
 
 export type QueryResolvers<ContextType = any, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
   getUserByID?: Resolver<ResolversTypes['User'], ParentType, ContextType, RequireFields<QueryGetUserByIdArgs, 'ID'>>;
-  journeyGraph?: Resolver<ResolversTypes['JourneyGraph'], ParentType, ContextType, RequireFields<QueryJourneyGraphArgs, 'end' | 'start'>>;
+  journeyGraph?: Resolver<ResolversTypes['JourneyGraph'], ParentType, ContextType, RequireFields<QueryJourneyGraphArgs, 'endId' | 'startId'>>;
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
-};
-
-export type TransportEdgeResolvers<ContextType = any, ParentType extends ResolversParentTypes['TransportEdge'] = ResolversParentTypes['TransportEdge']> = {
-  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  label?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-  source?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  target?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  searchLocations?: Resolver<Array<ResolversTypes['Location']>, ParentType, ContextType, RequireFields<QuerySearchLocationsArgs, 'query'>>;
 };
 
 export type UserResolvers<ContextType = any, ParentType extends ResolversParentTypes['User'] = ResolversParentTypes['User']> = {
@@ -231,11 +271,12 @@ export type UserResolvers<ContextType = any, ParentType extends ResolversParentT
 
 export type Resolvers<ContextType = any> = {
   AuthResult?: AuthResultResolvers<ContextType>;
+  Connection?: ConnectionResolvers<ContextType>;
   JourneyGraph?: JourneyGraphResolvers<ContextType>;
-  LocationNode?: LocationNodeResolvers<ContextType>;
+  JourneyRoute?: JourneyRouteResolvers<ContextType>;
+  Location?: LocationResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
-  TransportEdge?: TransportEdgeResolvers<ContextType>;
   User?: UserResolvers<ContextType>;
 };
 

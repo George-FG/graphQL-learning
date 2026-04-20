@@ -1,7 +1,6 @@
 type Query {
   getUserByID(ID: ID!): User!
   me: User
-  journeyGraph(start: String!, end: String!): JourneyGraph!
 }
 
 type Mutation {
@@ -21,21 +20,39 @@ type AuthResult {
   User: User!
 }
 
-type JourneyGraph {
-  start: String!
-  end: String!
-  nodes: [LocationNode!]!
-  edges: [TransportEdge!]!
-}
-
-type LocationNode {
+type Location {
   id: ID!
   name: String!
+  lat: Float
+  lng: Float
+  type: String
 }
 
-type TransportEdge {
+type Connection {
   id: ID!
-  source: ID!
-  target: ID!
-  label: String!
+  fromId: ID!
+  toId: ID!
+  transportType: String
+  routeId: String
+  routeName: String
+  duration: Int
+}
+
+type JourneyGraph {
+  start: Location!
+  end: Location!
+  nodes: [Location!]!
+  edges: [Connection!]!
+  route: JourneyRoute!
+}
+
+type JourneyRoute {
+  nodes: [Location!]!
+  edges: [Connection!]!
+  totalDuration: Int
+}
+
+extend type Query {
+  searchLocations(query: String!): [Location!]!
+  journeyGraph(startId: ID!, endId: ID!): JourneyGraph!
 }
