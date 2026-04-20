@@ -4,14 +4,15 @@ import { useNavigate } from "react-router-dom";
 import AuthFormLayout from "../components/AuthFormLayout";
 import { SIGN_UP_MUTATION } from "../graphql/mutations";
 import { saveUsername } from "../lib/auth";
+import { setAccessToken } from "../lib/session";
 import type { Mutation, MutationSignUpArgs } from "@generated/generated";
 
-type SignUpResponse = Pick<Mutation, 'signUp'>;
+type SignUpResponse = Pick<Mutation, "signUp">;
 
 export default function SignUpPage() {
   const navigate = useNavigate();
 
-  const [username, setUsername] = useState("");
+  const [username, setUsernameState] = useState("");
   const [password, setPassword] = useState("");
   const [numFish, setNumFish] = useState("");
 
@@ -37,10 +38,11 @@ export default function SignUpPage() {
       },
     });
 
-    const returnedUser = result.data?.signUp?.User;
-    if (!returnedUser) return;
+    const authResult = result.data?.signUp;
+    if (!authResult) return;
 
-    saveUsername(returnedUser.Username);
+    setAccessToken(authResult.accessToken);
+    saveUsername(authResult.User.username);
     navigate("/welcome");
   };
 
@@ -59,7 +61,7 @@ export default function SignUpPage() {
             type="text"
             value={username}
             autoComplete="username"
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => setUsernameState(e.target.value)}
             required
           />
         </label>

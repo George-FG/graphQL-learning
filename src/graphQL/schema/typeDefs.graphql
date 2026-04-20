@@ -1,18 +1,22 @@
 type Query {
   getUserByID(ID: ID!): User!
+  me: User
 }
 
 type Mutation {
-  signUp(username: String!, password: String!, numFish: Int!): AuthUser!
-  login(username: String!, password: String!): AuthUser!
+  signUp(username: String!, password: String!, numFish: Int!): AuthResult!
+  login(username: String!, password: String!): AuthResult!
+  refreshSession: AuthResult!
+  logout: Boolean!
 }
 
 type User {
   ID: ID!
-  Username: String!
-  NumFish: Int
+  username: String!
+  numFish: Int
 }
 
-type AuthUser {
+type AuthResult {
+  accessToken: String!
   User: User!
 }

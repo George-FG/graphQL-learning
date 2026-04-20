@@ -1,9 +1,11 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { expressMiddleware } from "@as-integrations/express5";
-import { ApolloServer, BaseContext } from "@apollo/server";
+import { ApolloServer } from "@apollo/server";
+import type { GraphQLContext } from "@generated/context";
 
-export const runHttpServer = async (server: ApolloServer<BaseContext>) => {
+export const runHttpServer = async (server: ApolloServer<GraphQLContext>) => {
   const app = express();
   const port = 3000;
 
@@ -11,13 +13,18 @@ export const runHttpServer = async (server: ApolloServer<BaseContext>) => {
     res.send("Hello World!");
   });
 
+  app.use(cookieParser());
+
   app.use(
     "/graphql",
     cors({
       origin: "http://localhost:5173",
+      credentials: true,
     }),
     express.json(),
-    expressMiddleware(server)
+    expressMiddleware(server, {
+      context: async ({ req, res }) => ({ req, res }),
+    })
   );
 
   await new Promise<void>((resolve) => {

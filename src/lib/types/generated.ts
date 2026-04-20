@@ -16,15 +16,18 @@ export type Scalars = {
   Float: { input: number; output: number; }
 };
 
-export type AuthUser = {
-  __typename?: 'AuthUser';
+export type AuthResult = {
+  __typename?: 'AuthResult';
   User: User;
+  accessToken: Scalars['String']['output'];
 };
 
 export type Mutation = {
   __typename?: 'Mutation';
-  login: AuthUser;
-  signUp: AuthUser;
+  login: AuthResult;
+  logout: Scalars['Boolean']['output'];
+  refreshSession: AuthResult;
+  signUp: AuthResult;
 };
 
 
@@ -43,6 +46,7 @@ export type MutationSignUpArgs = {
 export type Query = {
   __typename?: 'Query';
   getUserByID: User;
+  me?: Maybe<User>;
 };
 
 
@@ -53,8 +57,8 @@ export type QueryGetUserByIdArgs = {
 export type User = {
   __typename?: 'User';
   ID: Scalars['ID']['output'];
-  NumFish?: Maybe<Scalars['Int']['output']>;
-  Username: Scalars['String']['output'];
+  numFish?: Maybe<Scalars['Int']['output']>;
+  username: Scalars['String']['output'];
 };
 
 
@@ -130,7 +134,7 @@ export type DirectiveResolverFn<TResult = Record<PropertyKey, never>, TParent = 
 
 /** Mapping between all available schema types and the resolvers types */
 export type ResolversTypes = {
-  AuthUser: ResolverTypeWrapper<AuthUser>;
+  AuthResult: ResolverTypeWrapper<AuthResult>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
@@ -142,7 +146,7 @@ export type ResolversTypes = {
 
 /** Mapping between all available schema types and the resolvers parents */
 export type ResolversParentTypes = {
-  AuthUser: AuthUser;
+  AuthResult: AuthResult;
   Boolean: Scalars['Boolean']['output'];
   ID: Scalars['ID']['output'];
   Int: Scalars['Int']['output'];
@@ -152,27 +156,31 @@ export type ResolversParentTypes = {
   User: User;
 };
 
-export type AuthUserResolvers<ContextType = any, ParentType extends ResolversParentTypes['AuthUser'] = ResolversParentTypes['AuthUser']> = {
+export type AuthResultResolvers<ContextType = any, ParentType extends ResolversParentTypes['AuthResult'] = ResolversParentTypes['AuthResult']> = {
   User?: Resolver<ResolversTypes['User'], ParentType, ContextType>;
+  accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
 
 export type MutationResolvers<ContextType = any, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = {
-  login?: Resolver<ResolversTypes['AuthUser'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'password' | 'username'>>;
-  signUp?: Resolver<ResolversTypes['AuthUser'], ParentType, ContextType, RequireFields<MutationSignUpArgs, 'numFish' | 'password' | 'username'>>;
+  login?: Resolver<ResolversTypes['AuthResult'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'password' | 'username'>>;
+  logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+  refreshSession?: Resolver<ResolversTypes['AuthResult'], ParentType, ContextType>;
+  signUp?: Resolver<ResolversTypes['AuthResult'], ParentType, ContextType, RequireFields<MutationSignUpArgs, 'numFish' | 'password' | 'username'>>;
 };
 
 export type QueryResolvers<ContextType = any, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
   getUserByID?: Resolver<ResolversTypes['User'], ParentType, ContextType, RequireFields<QueryGetUserByIdArgs, 'ID'>>;
+  me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
 };
 
 export type UserResolvers<ContextType = any, ParentType extends ResolversParentTypes['User'] = ResolversParentTypes['User']> = {
   ID?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
-  NumFish?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  Username?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  numFish?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
+  username?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
 
 export type Resolvers<ContextType = any> = {
-  AuthUser?: AuthUserResolvers<ContextType>;
+  AuthResult?: AuthResultResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   User?: UserResolvers<ContextType>;

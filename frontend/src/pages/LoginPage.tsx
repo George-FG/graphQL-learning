@@ -4,14 +4,15 @@ import { useNavigate } from "react-router-dom";
 import AuthFormLayout from "../components/AuthFormLayout";
 import { LOGIN_MUTATION } from "../graphql/mutations";
 import { saveUsername } from "../lib/auth";
+import { setAccessToken } from "../lib/session";
 import type { Mutation, MutationLoginArgs } from "@generated/generated";
 
-type LoginResponse = Pick<Mutation, 'login'>;
+type LoginResponse = Pick<Mutation, "login">;
 
 export default function LoginPage() {
   const navigate = useNavigate();
 
-  const [username, setUsername] = useState("");
+  const [username, setUsernameState] = useState("");
   const [password, setPassword] = useState("");
 
   const [login, { loading, error }] = useMutation<LoginResponse, MutationLoginArgs>(
@@ -28,10 +29,11 @@ export default function LoginPage() {
       },
     });
 
-    const returnedUser = result.data?.login?.User;
-    if (!returnedUser) return;
+    const authResult = result.data?.login;
+    if (!authResult) return;
 
-    saveUsername(returnedUser.Username);
+    setAccessToken(authResult.accessToken);
+    saveUsername(authResult.User.username);
     navigate("/welcome");
   };
 
@@ -50,7 +52,7 @@ export default function LoginPage() {
             type="text"
             value={username}
             autoComplete="username"
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => setUsernameState(e.target.value)}
             required
           />
         </label>
