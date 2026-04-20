@@ -1,0 +1,23 @@
+overwrite: true
+sort: true
+generates:
+  src/lib/types/generated.ts:
+    schema:
+      - ./src/graphQL/schema/typeDefs.graphql
+    plugins:
+      - typescript
+      - typed-document-node
+      - typescript-resolvers
+    config:
+      maybeValue: T | undefined
+      enumsAsTypes: false
+      noNamespaces: false
+      preResolveTypes: false
+      onlyOperationTypes: false
+      skipTypename: false
+      scalars:
+        Set: string[]
+        Time: string
+        Date: string
+        DateTime: string
+        Json: "{ [key: string]: any } | string | string[] | { [key: string]: any | boolean | boolean[] | number | number[]}[]"
