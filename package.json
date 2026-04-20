@@ -10,7 +10,11 @@
   "scripts": {
     "build": "rimraf ./dist && tsc && copyfiles --up 1 **/*.graphql ./dist ",
     "start": "npm run build && node dist/index.js",
-    "codegen": "graphql-codegen"
+    "codegen": "graphql-codegen",
+    "db:up": "docker compose -f db/compose.yml up -d",
+    "db:down": "docker compose -f db/compose.yml down",
+    "db:reset": "docker compose -f db/compose.yml down -v && docker compose -f db/compose.yml up -d",
+    "db:logs": "docker compose -f db/compose.yml logs -f"
   },
   "devDependencies": {
     "@graphql-codegen/cli": "^6.3.0",
