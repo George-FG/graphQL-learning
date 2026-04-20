@@ -3,14 +3,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AuthFormLayout from "../components/AuthFormLayout";
 import { SIGN_UP_MUTATION } from "../graphql/mutations";
-import { saveUsername } from "../lib/auth";
-import { setAccessToken } from "../lib/session";
+import { useAuthBootstrap } from "../context/AuthBootstrap";
 import type { Mutation, MutationSignUpArgs } from "@generated/generated";
 
 type SignUpResponse = Pick<Mutation, "signUp">;
 
 export default function SignUpPage() {
   const navigate = useNavigate();
+  const { setLoggedInUser } = useAuthBootstrap();
 
   const [username, setUsernameState] = useState("");
   const [password, setPassword] = useState("");
@@ -25,10 +25,7 @@ export default function SignUpPage() {
     event.preventDefault();
 
     const parsedNumFish = Number(numFish);
-
-    if (!Number.isInteger(parsedNumFish) || parsedNumFish < 0) {
-      return;
-    }
+    if (!Number.isInteger(parsedNumFish) || parsedNumFish < 0) return;
 
     const result = await signUp({
       variables: {
@@ -41,8 +38,7 @@ export default function SignUpPage() {
     const authResult = result.data?.signUp;
     if (!authResult) return;
 
-    setAccessToken(authResult.accessToken);
-    saveUsername(authResult.User.username);
+    setLoggedInUser(authResult.accessToken, authResult.User.username);
     navigate("/welcome");
   };
 

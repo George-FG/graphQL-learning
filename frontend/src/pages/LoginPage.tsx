@@ -3,14 +3,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AuthFormLayout from "../components/AuthFormLayout";
 import { LOGIN_MUTATION } from "../graphql/mutations";
-import { saveUsername } from "../lib/auth";
-import { setAccessToken } from "../lib/session";
+import { useAuthBootstrap } from "../context/AuthBootstrap";
 import type { Mutation, MutationLoginArgs } from "@generated/generated";
 
 type LoginResponse = Pick<Mutation, "login">;
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { setLoggedInUser } = useAuthBootstrap();
 
   const [username, setUsernameState] = useState("");
   const [password, setPassword] = useState("");
@@ -23,17 +23,13 @@ export default function LoginPage() {
     event.preventDefault();
 
     const result = await login({
-      variables: {
-        username,
-        password,
-      },
+      variables: { username, password },
     });
 
     const authResult = result.data?.login;
     if (!authResult) return;
 
-    setAccessToken(authResult.accessToken);
-    saveUsername(authResult.User.username);
+    setLoggedInUser(authResult.accessToken, authResult.User.username);
     navigate("/welcome");
   };
 
