@@ -50,3 +50,5 @@ coverage/
 # Ignore compiled JS in src (if any)
 /src/**/*.js
 /src/**/*.js.map
+
+/src/generated/prisma

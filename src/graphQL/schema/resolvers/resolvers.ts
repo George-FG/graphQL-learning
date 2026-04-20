@@ -1,4 +1,21 @@
+import { prisma } from "../../../lib/prisma";
+
 export const resolvers = {
-  Query: { helloWorld: () => "hello Andrew", getPersonByID: (_: unknown, args: { ID: string }) => { return { ID: args.ID, Name: "George", NumFish: 1000 } }
-  }
+  Query: {
+    getPersonByID: async (_: unknown, args: { ID: string }) => {
+      const user = await prisma.user.findUnique({
+        where: {
+          id: BigInt(args.ID),
+        },
+      });
+
+      if (!user) return null;
+
+      return {
+        ID: user.id.toString(),
+        Name: user.name,
+        NumFish: user.numFish,
+      };
+    },
+  },
 };
