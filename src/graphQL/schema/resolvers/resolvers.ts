@@ -2,7 +2,7 @@ import { prisma } from "../../../lib/prisma";
 
 export const resolvers = {
   Query: {
-    getPersonByID: async (_: unknown, args: { ID: string }) => {
+    getUserByID: async (_: unknown, args: { ID: string }) => {
       const user = await prisma.user.findUnique({
         where: {
           id: BigInt(args.ID),

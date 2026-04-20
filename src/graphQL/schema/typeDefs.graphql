@@ -1,8 +1,8 @@
 type Query {
-  getPersonByID(ID: ID!): Person!
+  getUserByID(ID: ID!): User!
 }
 
-type Person {
+type User {
   ID: ID!
   Name: String!
   NumFish: Int

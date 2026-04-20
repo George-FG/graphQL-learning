@@ -16,22 +16,21 @@ export type Scalars = {
   Float: { input: number; output: number; }
 };
 
-export type Person = {
-  __typename?: 'Person';
+export type Query = {
+  __typename?: 'Query';
+  getUserByID: User;
+};
+
+
+export type QueryGetUserByIdArgs = {
+  ID: Scalars['ID']['input'];
+};
+
+export type User = {
+  __typename?: 'User';
   ID: Scalars['ID']['output'];
   Name: Scalars['String']['output'];
   NumFish?: Maybe<Scalars['Int']['output']>;
-};
-
-export type Query = {
-  __typename?: 'Query';
-  getPersonByID: Person;
-  helloWorld: Scalars['String']['output'];
-};
-
-
-export type QueryGetPersonByIdArgs = {
-  ID: Scalars['ID']['input'];
 };
 
 
@@ -110,9 +109,9 @@ export type ResolversTypes = {
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
-  Person: ResolverTypeWrapper<Person>;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
+  User: ResolverTypeWrapper<User>;
 };
 
 /** Mapping between all available schema types and the resolvers parents */
@@ -120,24 +119,23 @@ export type ResolversParentTypes = {
   Boolean: Scalars['Boolean']['output'];
   ID: Scalars['ID']['output'];
   Int: Scalars['Int']['output'];
-  Person: Person;
   Query: Record<PropertyKey, never>;
   String: Scalars['String']['output'];
+  User: User;
 };
 
-export type PersonResolvers<ContextType = any, ParentType extends ResolversParentTypes['Person'] = ResolversParentTypes['Person']> = {
+export type QueryResolvers<ContextType = any, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
+  getUserByID?: Resolver<ResolversTypes['User'], ParentType, ContextType, RequireFields<QueryGetUserByIdArgs, 'ID'>>;
+};
+
+export type UserResolvers<ContextType = any, ParentType extends ResolversParentTypes['User'] = ResolversParentTypes['User']> = {
   ID?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   Name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   NumFish?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
 };
 
-export type QueryResolvers<ContextType = any, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
-  getPersonByID?: Resolver<ResolversTypes['Person'], ParentType, ContextType, RequireFields<QueryGetPersonByIdArgs, 'ID'>>;
-  helloWorld?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
-};
-
 export type Resolvers<ContextType = any> = {
-  Person?: PersonResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
+  User?: UserResolvers<ContextType>;
 };
 
