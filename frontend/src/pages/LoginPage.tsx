@@ -4,21 +4,9 @@ import { useNavigate } from "react-router-dom";
 import AuthFormLayout from "../components/AuthFormLayout";
 import { LOGIN_MUTATION } from "../graphql/mutations";
 import { saveUsername } from "../lib/auth";
+import type { Mutation, MutationLoginArgs } from "@generated/generated";
 
-type LoginResponse = {
-  login: {
-    User: {
-      ID: string;
-      Username: string;
-      NumFish: number | null;
-    };
-  };
-};
-
-type LoginVariables = {
-  username: string;
-  password: string;
-};
+type LoginResponse = Pick<Mutation, 'login'>;
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -26,7 +14,7 @@ export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  const [login, { loading, error }] = useMutation<LoginResponse, LoginVariables>(
+  const [login, { loading, error }] = useMutation<LoginResponse, MutationLoginArgs>(
     LOGIN_MUTATION
   );
 

@@ -12,7 +12,10 @@
         "resolveJsonModule": true,
         "declaration": true,
         "declarationMap": true,
-        "sourceMap": true
+        "sourceMap": true,
+        "paths": {
+            "@generated/*": ["./src/lib/types/*"]
+        }
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist"]

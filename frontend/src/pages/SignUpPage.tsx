@@ -4,22 +4,9 @@ import { useNavigate } from "react-router-dom";
 import AuthFormLayout from "../components/AuthFormLayout";
 import { SIGN_UP_MUTATION } from "../graphql/mutations";
 import { saveUsername } from "../lib/auth";
+import type { Mutation, MutationSignUpArgs } from "@generated/generated";
 
-type SignUpResponse = {
-  signUp: {
-    User: {
-      ID: string;
-      Username: string;
-      NumFish: number | null;
-    };
-  };
-};
-
-type SignUpVariables = {
-  username: string;
-  password: string;
-  numFish: number;
-};
+type SignUpResponse = Pick<Mutation, 'signUp'>;
 
 export default function SignUpPage() {
   const navigate = useNavigate();
@@ -30,7 +17,7 @@ export default function SignUpPage() {
 
   const [signUp, { loading, error }] = useMutation<
     SignUpResponse,
-    SignUpVariables
+    MutationSignUpArgs
   >(SIGN_UP_MUTATION);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {

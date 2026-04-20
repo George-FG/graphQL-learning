@@ -1,24 +1,15 @@
 import { prisma } from "../../../lib/prisma";
 import bcrypt from "bcrypt";
+import type { 
+  QueryGetUserByIdArgs, 
+  MutationSignUpArgs, 
+  MutationLoginArgs, 
+  Resolvers 
+} from "@generated/generated";
 
-type GetUserArgs = {
-  ID: string;
-};
-
-type SignUpArgs = {
-  username: string;
-  password: string;
-  numFish: number;
-};
-
-type LoginArgs = {
-  username: string;
-  password: string;
-};
-
-export const resolvers = {
+export const resolvers: Resolvers = {
   Query: {
-    getUserByID: async (_: unknown, args: GetUserArgs) => {
+    getUserByID: async (_: unknown, args: QueryGetUserByIdArgs) => {
       const user = await prisma.user.findUnique({
         where: {
           id: BigInt(args.ID),
@@ -32,13 +23,13 @@ export const resolvers = {
       return {
         ID: user.id.toString(),
         Username: user.username,
-        NumFish: user.numFish,
+        NumFish: user.numFish ?? undefined,
       };
     },
   },
 
   Mutation: {
-    signUp: async (_: unknown, args: SignUpArgs) => {
+    signUp: async (_: unknown, args: MutationSignUpArgs) => {
       const existingUser = await prisma.user.findUnique({
         where: {
           username: args.username,
@@ -63,12 +54,12 @@ export const resolvers = {
         User: {
           ID: user.id.toString(),
           Username: user.username,
-          NumFish: user.numFish,
+          NumFish: user.numFish ?? undefined,
         },
       };
     },
 
-    login: async (_: unknown, args: LoginArgs) => {
+    login: async (_: unknown, args: MutationLoginArgs) => {
       const user = await prisma.user.findUnique({
         where: {
           username: args.username,
@@ -92,7 +83,7 @@ export const resolvers = {
         User: {
           ID: user.id.toString(),
           Username: user.username,
-          NumFish: user.numFish,
+          NumFish: user.numFish ?? undefined,
         },
       };
     },
