@@ -8,3 +8,22 @@ export const ME_QUERY = gql`
     }
   }
 `;
+
+export const JOURNEY_GRAPH_QUERY = gql`
+  query JourneyGraph($start: String!, $end: String!) {
+    journeyGraph(start: $start, end: $end) {
+      start
+      end
+      nodes {
+        id
+        name
+      }
+      edges {
+        id
+        source
+        target
+        label
+      }
+    }
+  }
+`;

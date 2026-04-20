@@ -19,6 +19,40 @@ const refreshCookieOptions = {
   path: "/",
 };
 
+const MOCK_LOCATION_NODES = [
+  { id: "leeds", name: "Leeds" },
+  { id: "huddersfield", name: "Huddersfield" },
+  { id: "manchester", name: "Manchester" },
+];
+
+const MOCK_TRANSPORT_EDGES = [
+  {
+    id: "leeds-to-huddersfield",
+    source: "leeds",
+    target: "huddersfield",
+    label: "Leeds -> Huddersfield",
+  },
+  {
+    id: "huddersfield-to-manchester",
+    source: "huddersfield",
+    target: "manchester",
+    label: "Huddersfield -> Manchester",
+  },
+  {
+    id: "leeds-to-manchester",
+    source: "leeds",
+    target: "manchester",
+    label: "Leeds -> Manchester",
+  },
+];
+
+function findNodeByName(name: string) {
+  const normalizedName = name.trim().toLowerCase();
+  return MOCK_LOCATION_NODES.find(
+    (node) => node.name.toLowerCase() === normalizedName
+  );
+}
+
 function toGraphQLUser(user: {
   id: bigint;
   username: string;
@@ -93,6 +127,25 @@ export const resolvers: Resolvers<GraphQLContext> = {
       }
 
       return toGraphQLUser(user);
+    },
+
+    journeyGraph: (_parent, args) => {
+      const startNode = findNodeByName(args.start);
+      if (!startNode) {
+        throw new Error(`Unknown start location: ${args.start}`);
+      }
+
+      const endNode = findNodeByName(args.end);
+      if (!endNode) {
+        throw new Error(`Unknown end location: ${args.end}`);
+      }
+
+      return {
+        start: startNode.name,
+        end: endNode.name,
+        nodes: MOCK_LOCATION_NODES,
+        edges: MOCK_TRANSPORT_EDGES,
+      };
     },
   },
 

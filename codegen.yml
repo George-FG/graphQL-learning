@@ -15,6 +15,7 @@ generates:
       preResolveTypes: false
       onlyOperationTypes: false
       skipTypename: false
+      useTypeImports: true
       scalars:
         Set: string[]
         Time: string

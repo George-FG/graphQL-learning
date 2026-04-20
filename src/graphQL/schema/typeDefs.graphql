@@ -1,6 +1,7 @@
 type Query {
   getUserByID(ID: ID!): User!
   me: User
+  journeyGraph(start: String!, end: String!): JourneyGraph!
 }
 
 type Mutation {
@@ -18,4 +19,23 @@ type User {
 type AuthResult {
   accessToken: String!
   User: User!
+}
+
+type JourneyGraph {
+  start: String!
+  end: String!
+  nodes: [LocationNode!]!
+  edges: [TransportEdge!]!
+}
+
+type LocationNode {
+  id: ID!
+  name: String!
+}
+
+type TransportEdge {
+  id: ID!
+  source: ID!
+  target: ID!
+  label: String!
 }

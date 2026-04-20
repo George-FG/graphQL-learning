@@ -52,6 +52,13 @@ export default function LandingPage() {
             </button>
           )}
 
+          <button
+            className="secondary-button"
+            onClick={() => navigate("/journey-planner")}
+          >
+            Journey Planner MVP
+          </button>
+
           <button className="secondary-button" onClick={handleClearAuth}>
             Clear All Tokens / Log Out
           </button>
