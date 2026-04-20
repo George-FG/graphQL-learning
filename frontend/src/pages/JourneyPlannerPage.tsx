@@ -30,12 +30,26 @@ type LocationOption = SearchLocationsResponse["searchLocations"][number];
 type JourneyNodeData = {
   label: string;
 };
+type MapNodeData = {
+  src: string;
+  alt: string;
+};
 
 const BASE_NODE_WIDTH = 90;
 const BASE_NODE_HEIGHT = 90;
-const GEO_CANVAS_WIDTH = 2200 * 2;
-const GEO_CANVAS_HEIGHT = 1400 * 2;
-const GEO_CANVAS_PADDING = 180;
+const GEO_CANVAS_WIDTH = 2200 * 3;
+const GEO_CANVAS_HEIGHT = 1400 * 3;
+const GEO_CANVAS_PADDING = 200;
+const MAP_NODE_ID = "__geo_map_background__";
+const MAP_IMAGE_URL = "/maps/region-map.png";
+
+// Calibrate these bounds to match your background image extent.
+const MAP_GEO_BOUNDS = {
+  minLat: 52.75700,
+  maxLat: 53.0210,
+  minLng: -1.25200,
+  maxLng: -0.76280,
+};
 
 function JourneyNode({ data }: NodeProps<JourneyNodeData>) {
   return (
@@ -53,8 +67,17 @@ function JourneyNode({ data }: NodeProps<JourneyNodeData>) {
   );
 }
 
+function MapBackgroundNode({ data }: NodeProps<MapNodeData>) {
+  return (
+    <div className="map-background-node">
+      <img src={data.src} alt={data.alt} draggable={false} />
+    </div>
+  );
+}
+
 const journeyNodeTypes: NodeTypes = {
   journeyNode: JourneyNode,
+  mapNode: MapBackgroundNode,
 };
 
 function getClosestSide(dx: number, dy: number, isSource: boolean) {
@@ -136,17 +159,10 @@ function buildGeoLayout(
   const height = GEO_CANVAS_HEIGHT;
   const padding = GEO_CANVAS_PADDING;
 
-  const lats = graph.nodes
-    .map((node) => node.lat)
-    .filter((lat): lat is number => typeof lat === "number");
-  const lngs = graph.nodes
-    .map((node) => node.lng)
-    .filter((lng): lng is number => typeof lng === "number");
-
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
+  const minLat = MAP_GEO_BOUNDS.minLat;
+  const maxLat = MAP_GEO_BOUNDS.maxLat;
+  const minLng = MAP_GEO_BOUNDS.minLng;
+  const maxLng = MAP_GEO_BOUNDS.maxLng;
 
   const latRange = maxLat - minLat;
   const lngRange = maxLng - minLng;
@@ -158,9 +174,36 @@ function buildGeoLayout(
   const usableWidth = width - padding * 2;
   const usableHeight = height - padding * 2;
 
-  const nodes: Node<JourneyNodeData>[] = graph.nodes.map((node) => {
-    const normalizedX = ((node.lng as number) - minLng) / lngRange;
-    const normalizedY = (maxLat - (node.lat as number)) / latRange;
+  const mapNode: Node<MapNodeData> = {
+    id: MAP_NODE_ID,
+    type: "mapNode",
+    position: { x: 0, y: 0 },
+    data: {
+      src: MAP_IMAGE_URL,
+      alt: "Transport map background",
+    },
+    draggable: false,
+    selectable: false,
+    deletable: false,
+    focusable: false,
+    zIndex: 0,
+    style: {
+      width,
+      height,
+      borderRadius: 18,
+      pointerEvents: "none",
+    },
+  };
+
+  const routeNodes: Node<JourneyNodeData>[] = graph.nodes.map((node) => {
+    const normalizedX = Math.min(
+      1,
+      Math.max(0, ((node.lng as number) - minLng) / lngRange),
+    );
+    const normalizedY = Math.min(
+      1,
+      Math.max(0, (maxLat - (node.lat as number)) / latRange),
+    );
 
     const x = padding + normalizedX * usableWidth;
     const y = padding + normalizedY * usableHeight;
@@ -174,6 +217,7 @@ function buildGeoLayout(
       },
       data: { label: node.name },
       type: "journeyNode",
+      zIndex: 5,
       style: {
         borderRadius: 12,
         border: isRouteNode ? "2px solid #ef4444" : "1px solid #bfdbfe",
@@ -191,8 +235,10 @@ function buildGeoLayout(
     };
   });
 
+  const nodes: Node[] = [mapNode, ...routeNodes];
+
   const centers = new Map<string, { x: number; y: number }>();
-  nodes.forEach((node) => {
+  routeNodes.forEach((node) => {
     centers.set(node.id, {
       x: node.position.x + nodeWidth / 2,
       y: node.position.y + nodeHeight / 2,
@@ -290,6 +336,7 @@ function buildDagreLayout(
       },
       data: { label: node.name },
       type: "journeyNode",
+      zIndex: 5,
       style: {
         borderRadius: 12,
         border: isRouteNode ? "2px solid #ef4444" : "1px solid #bfdbfe",
