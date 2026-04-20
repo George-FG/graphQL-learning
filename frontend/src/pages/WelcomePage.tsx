@@ -13,11 +13,10 @@ export default function WelcomePage() {
     fetchPolicy: "network-only",
   });
 
-  const user = data?.me;
-  const isLoggedOut = !user || user.ID === "-1" || user.username === "";
+  const user = data?.me ?? null;
 
   const handleBackHome = () => {
-    if (isLoggedOut) {
+    if (!user) {
       clearAccessToken();
       clearUsername();
     }
@@ -34,7 +33,7 @@ export default function WelcomePage() {
     );
   }
 
-  if (error || isLoggedOut) {
+  if (error || !user) {
     return (
       <div className="page-shell">
         <div className="auth-card landing-card">

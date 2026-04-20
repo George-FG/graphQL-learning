@@ -1,11 +1,6 @@
-import { prisma } from "../../../lib/prisma";
 import bcrypt from "bcrypt";
-import type {
-  QueryGetUserByIdArgs,
-  MutationSignUpArgs,
-  MutationLoginArgs,
-  Resolvers,
-} from "@generated/generated";
+import { prisma } from "../../../lib/prisma";
+import type { Resolvers } from "@generated/generated";
 import {
   signAccessToken,
   signRefreshToken,
@@ -38,7 +33,7 @@ function toGraphQLUser(user: {
 
 export const resolvers: Resolvers<GraphQLContext> = {
   Query: {
-    getUserByID: async (_parent, args: QueryGetUserByIdArgs) => {
+    getUserByID: async (_parent, args, _context) => {
       const user = await prisma.user.findUnique({
         where: {
           id: BigInt(args.ID),
@@ -56,7 +51,7 @@ export const resolvers: Resolvers<GraphQLContext> = {
       const authHeader = context.req.headers.authorization;
 
       if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return {ID: "-1", username: "", NumFish: undefined};
+        return undefined;
       }
 
       const token = authHeader.slice("Bearer ".length);
@@ -71,18 +66,18 @@ export const resolvers: Resolvers<GraphQLContext> = {
         });
 
         if (!user) {
-          return {ID: "-1", username: "", NumFish: undefined};
+          return undefined;
         }
 
         return toGraphQLUser(user);
       } catch {
-        return {ID: "-1", username: "", NumFish: undefined};
+        return undefined;
       }
     },
   },
 
   Mutation: {
-    signUp: async (_parent, args: MutationSignUpArgs, context) => {
+    signUp: async (_parent, args, context) => {
       const existingUser = await prisma.user.findUnique({
         where: {
           username: args.username,
@@ -123,7 +118,7 @@ export const resolvers: Resolvers<GraphQLContext> = {
       };
     },
 
-    login: async (_parent, args: MutationLoginArgs, context) => {
+    login: async (_parent, args, context) => {
       const user = await prisma.user.findUnique({
         where: {
           username: args.username,
@@ -164,13 +159,16 @@ export const resolvers: Resolvers<GraphQLContext> = {
     },
 
     refreshSession: async (_parent, _args, context) => {
-      const refreshToken = context.req.cookies?.[REFRESH_COOKIE_NAME];
+      const refreshToken = context.req.cookies?.[REFRESH_COOKIE_NAME] as
+        | string
+        | undefined;
 
       if (!refreshToken) {
         throw new Error("No refresh token");
       }
 
-      let payload;
+      let payload: { userId: string; username: string };
+
       try {
         payload = verifyRefreshToken(refreshToken);
       } catch {

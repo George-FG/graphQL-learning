@@ -31,6 +31,7 @@ export function AuthBootstrapProvider({
       try {
         const result = await client.mutate<RefreshSessionResponse>({
           mutation: REFRESH_SESSION_MUTATION,
+          fetchPolicy: "no-cache",
         });
 
         const refreshed = result.data?.refreshSession;
@@ -38,7 +39,6 @@ export function AuthBootstrapProvider({
           clearAccessToken();
           clearUsername();
           setUsernameState(null);
-          setReady(true);
           return;
         }
 
@@ -77,7 +77,13 @@ export function AuthBootstrapProvider({
   );
 
   if (!ready) {
-    return <div className="page-shell"><div className="auth-card landing-card"><h1>Loading...</h1></div></div>;
+    return (
+      <div className="page-shell">
+        <div className="auth-card landing-card">
+          <h1>Loading...</h1>
+        </div>
+      </div>
+    );
   }
 
   return (
