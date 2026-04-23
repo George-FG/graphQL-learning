@@ -8,6 +8,7 @@ import {
   signAccessToken,
 } from "../../../lib/auth";
 import { parseAnkiFile } from "../../../lib/ankiParser";
+import { generateDistractorsBatch } from "../../../lib/llmDistractors";
 import type { GraphQLContext } from "@generated/context";
 
 const REFRESH_COOKIE_NAME = "refreshToken";
@@ -154,6 +155,153 @@ export const resolvers: Resolvers<GraphQLContext> = {
           position: c.position,
         })),
       };
+    },
+
+    quizQuestions: async (_parent, args, context) => {
+      if (!context.authUser) {
+        throw new Error("Not authenticated");
+      }
+
+      const BATCH = Math.min(10, Math.max(1, args.limit ?? 5));
+      const offset = Math.max(0, args.offset ?? 0);
+
+      const deckMeta = await prisma.deck.findFirst({
+        where: {
+          id: BigInt(args.deckId),
+          userId: BigInt(context.authUser.userId),
+        },
+        include: { _count: { select: { cards: true } } },
+      });
+
+      if (!deckMeta) throw new Error("Deck not found");
+
+      const totalCards = deckMeta._count.cards;
+
+      const questionCards = await prisma.card.findMany({
+        where: { deckId: BigInt(args.deckId) },
+        orderBy: { position: "asc" },
+        skip: offset,
+        take: BATCH,
+      });
+
+      if (questionCards.length === 0) {
+        return { questions: [], totalCards };
+      }
+
+      // Fallback pool: position-based distractors (used when LLM is unavailable
+      // or for cards that haven't been cached yet during the LLM call)
+      const distractorPool = await prisma.card.findMany({
+        where: {
+          deckId: BigInt(args.deckId),
+          id: { notIn: questionCards.map((c) => c.id) },
+        },
+        orderBy: { position: "asc" },
+        take: 200,
+      });
+
+      function shuffle<T>(arr: T[]): T[] {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      function positionDistractors(
+        card: { id: bigint; position: number },
+        count: number
+      ): string[] {
+        const nearby = distractorPool.filter(
+          (c) => Math.abs(c.position - card.position) <= 20 && c.id !== card.id
+        );
+        const far = distractorPool.filter(
+          (c) => !nearby.includes(c) && c.id !== card.id
+        );
+        return [...shuffle(nearby), ...shuffle(far)]
+          .slice(0, count)
+          .map((c) => c.back);
+      }
+
+      // Determine which cards need LLM generation (cache miss)
+      const uncachedCards = questionCards.filter((c) => {
+        if (!c.distractors) return true;
+        try {
+          const parsed = JSON.parse(c.distractors) as unknown;
+          return !Array.isArray(parsed) || (parsed as unknown[]).length < 3;
+        } catch { return true; }
+      });
+
+      // Single Groq request for all uncached cards
+      const llmCache: Record<string, string[]> = {};
+      if (uncachedCards.length > 0) {
+        const batchResult = await generateDistractorsBatch(
+          uncachedCards.map((c) => ({
+            id: c.id.toString(),
+            front: c.front,
+            correctAnswer: c.back,
+          }))
+        );
+
+        if (batchResult.ok) {
+          Object.assign(llmCache, batchResult.results);
+
+          // Persist new cache entries (fire-and-forget)
+          for (const card of uncachedCards) {
+            const distractors = llmCache[card.id.toString()];
+            if (distractors?.length >= 3) {
+              prisma.card
+                .update({
+                  where: { id: card.id },
+                  data: { distractors: JSON.stringify(distractors) },
+                })
+                .catch(() => {/* non-critical */});
+            }
+          }
+        }
+      }
+
+      // Build final questions using LLM results where available, fallback otherwise
+      const questions = questionCards.map((card) => {
+        const idStr = card.id.toString();
+
+        // Resolve distractors: LLM cache > DB cache > position fallback
+        let distractorTexts: string[] = [];
+
+        if (llmCache[idStr]?.length >= 3) {
+          distractorTexts = llmCache[idStr];
+        } else if (card.distractors) {
+          try {
+            const cached = JSON.parse(card.distractors) as unknown;
+            if (Array.isArray(cached) && (cached as unknown[]).length >= 3) {
+              distractorTexts = cached as string[];
+            }
+          } catch {/* fall through */}
+        }
+
+        if (distractorTexts.length < 3) {
+          distractorTexts = positionDistractors(card, 3);
+        }
+
+        const distractorOptions = distractorTexts.slice(0, 3).map((text, i) => ({
+          id: `${idStr}_d${i}`,
+          text,
+        }));
+
+        const allOptions = shuffle([
+          { id: idStr, text: card.back },
+          ...distractorOptions,
+        ]);
+
+        return {
+          cardId: idStr,
+          front: card.front,
+          options: allOptions,
+          correctOptionId: idStr,
+        };
+      });
+
+      return { questions, totalCards };
     },
   },
 

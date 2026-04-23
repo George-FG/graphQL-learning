@@ -35,3 +35,20 @@ export const DECK_QUERY = gql`
     }
   }
 `;
+
+export const QUIZ_QUESTIONS_QUERY = gql`
+  query QuizQuestions($deckId: ID!, $offset: Int, $limit: Int) {
+    quizQuestions(deckId: $deckId, offset: $offset, limit: $limit) {
+      totalCards
+      questions {
+        cardId
+        front
+        correctOptionId
+        options {
+          id
+          text
+        }
+      }
+    }
+  }
+`;

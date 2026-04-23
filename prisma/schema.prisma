@@ -44,12 +44,13 @@ model Deck {
 }
 
 model Card {
-  id       BigInt @id @default(autoincrement())
-  deckId   BigInt @map("deck_id")
-  front    String
-  back     String
-  position Int
-  deck     Deck   @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  id           BigInt  @id @default(autoincrement())
+  deckId       BigInt  @map("deck_id")
+  front        String
+  back         String
+  position     Int
+  distractors  String? // JSON array of LLM-generated distractor strings, cached
+  deck         Deck    @relation(fields: [deckId], references: [id], onDelete: Cascade)
 
   @@index([deckId])
   @@map("cards")

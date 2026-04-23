@@ -4,16 +4,19 @@ import { useAuthBootstrap } from "../context/AuthBootstrap";
 import { DELETE_DECK_MUTATION } from "../graphql/mutations";
 import { MY_DECKS_QUERY } from "../graphql/queries";
 import FlashcardViewer from "../components/FlashcardViewer";
+import ExamMode from "../components/ExamMode";
 import type { Mutation, MutationDeleteDeckArgs, Query } from "@generated/generated";
 
 type MyDecksResponse = Pick<Query, "myDecks">;
 type DeleteDeckResponse = Pick<Mutation, "deleteDeck">;
 
 type ActiveDeck = { id: string; name: string; cardCount: number };
+type Mode = "flashcard" | "exam";
 
 export default function LandingPage() {
   const { isLoggedIn } = useAuthBootstrap();
   const [activeDeck, setActiveDeck] = useState<ActiveDeck | null>(null);
+  const [mode, setMode] = useState<Mode>("flashcard");
 
   const { data: decksData, loading: decksLoading } = useQuery<MyDecksResponse>(
     MY_DECKS_QUERY,
@@ -24,6 +27,11 @@ export default function LandingPage() {
     DELETE_DECK_MUTATION,
     { refetchQueries: [{ query: MY_DECKS_QUERY }] }
   );
+
+  const openDeck = (deck: ActiveDeck, m: Mode) => {
+    setMode(m);
+    setActiveDeck(deck);
+  };
 
   const handleDeleteDeck = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -56,30 +64,55 @@ export default function LandingPage() {
         </p>
       ) : (
         <ul className="deck-list">
-          {decks.map((deck) => (
-            <li key={deck.id} className="deck-item">
-              <button
-                className="deck-item-btn"
-                onClick={() => setActiveDeck({ id: deck.id, name: deck.name, cardCount: deck.cardCount })}
-              >
-                <span className="deck-name">{deck.name}</span>
-                <span className="deck-meta">{deck.cardCount} cards</span>
-              </button>
-              <button
-                className="deck-delete-btn"
-                onClick={(e) => handleDeleteDeck(deck.id, e)}
-                aria-label={`Delete ${deck.name}`}
-                title="Delete deck"
-              >
-                ✕
-              </button>
-            </li>
-          ))}
+          {decks.map((deck) => {
+            const d = { id: deck.id, name: deck.name, cardCount: deck.cardCount };
+            return (
+              <li key={deck.id} className="deck-item deck-item--actions">
+                <div className="deck-item-info">
+                  <span className="deck-name">{deck.name}</span>
+                  <span className="deck-meta">{deck.cardCount} cards</span>
+                </div>
+                <div className="deck-item-buttons">
+                  <button
+                    className="deck-action-btn deck-action-btn--study"
+                    onClick={() => openDeck(d, "flashcard")}
+                    title="Study flashcards"
+                  >
+                    Study
+                  </button>
+                  <button
+                    className="deck-action-btn deck-action-btn--exam"
+                    onClick={() => openDeck(d, "exam")}
+                    title="Exam mode"
+                  >
+                    Exam
+                  </button>
+                  <button
+                    className="deck-delete-btn"
+                    onClick={(e) => handleDeleteDeck(deck.id, e)}
+                    aria-label={`Delete ${deck.name}`}
+                    title="Delete deck"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      {activeDeck && (
+      {activeDeck && mode === "flashcard" && (
         <FlashcardViewer
+          deckId={activeDeck.id}
+          deckName={activeDeck.name}
+          totalCards={activeDeck.cardCount}
+          onClose={() => setActiveDeck(null)}
+        />
+      )}
+
+      {activeDeck && mode === "exam" && (
+        <ExamMode
           deckId={activeDeck.id}
           deckName={activeDeck.name}
           totalCards={activeDeck.cardCount}

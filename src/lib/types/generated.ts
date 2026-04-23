@@ -78,6 +78,7 @@ export type Query = {
   getUserByID: User;
   me?: Maybe<User>;
   myDecks: Array<Deck>;
+  quizQuestions: QuizPage;
 };
 
 
@@ -90,6 +91,33 @@ export type QueryDeckArgs = {
 
 export type QueryGetUserByIdArgs = {
   ID: Scalars['ID']['input'];
+};
+
+
+export type QueryQuizQuestionsArgs = {
+  deckId: Scalars['ID']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type QuizOption = {
+  __typename?: 'QuizOption';
+  id: Scalars['ID']['output'];
+  text: Scalars['String']['output'];
+};
+
+export type QuizPage = {
+  __typename?: 'QuizPage';
+  questions: Array<QuizQuestion>;
+  totalCards: Scalars['Int']['output'];
+};
+
+export type QuizQuestion = {
+  __typename?: 'QuizQuestion';
+  cardId: Scalars['ID']['output'];
+  correctOptionId: Scalars['ID']['output'];
+  front: Scalars['String']['output'];
+  options: Array<QuizOption>;
 };
 
 export type User = {
@@ -179,6 +207,9 @@ export type ResolversTypes = {
   Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
+  QuizOption: ResolverTypeWrapper<QuizOption>;
+  QuizPage: ResolverTypeWrapper<QuizPage>;
+  QuizQuestion: ResolverTypeWrapper<QuizQuestion>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
   User: ResolverTypeWrapper<User>;
 };
@@ -193,6 +224,9 @@ export type ResolversParentTypes = {
   Int: Scalars['Int']['output'];
   Mutation: Record<PropertyKey, never>;
   Query: Record<PropertyKey, never>;
+  QuizOption: QuizOption;
+  QuizPage: QuizPage;
+  QuizQuestion: QuizQuestion;
   String: Scalars['String']['output'];
   User: User;
 };
@@ -231,6 +265,24 @@ export type QueryResolvers<ContextType = any, ParentType extends ResolversParent
   getUserByID?: Resolver<ResolversTypes['User'], ParentType, ContextType, RequireFields<QueryGetUserByIdArgs, 'ID'>>;
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   myDecks?: Resolver<Array<ResolversTypes['Deck']>, ParentType, ContextType>;
+  quizQuestions?: Resolver<ResolversTypes['QuizPage'], ParentType, ContextType, RequireFields<QueryQuizQuestionsArgs, 'deckId'>>;
+};
+
+export type QuizOptionResolvers<ContextType = any, ParentType extends ResolversParentTypes['QuizOption'] = ResolversParentTypes['QuizOption']> = {
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  text?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
+export type QuizPageResolvers<ContextType = any, ParentType extends ResolversParentTypes['QuizPage'] = ResolversParentTypes['QuizPage']> = {
+  questions?: Resolver<Array<ResolversTypes['QuizQuestion']>, ParentType, ContextType>;
+  totalCards?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
+export type QuizQuestionResolvers<ContextType = any, ParentType extends ResolversParentTypes['QuizQuestion'] = ResolversParentTypes['QuizQuestion']> = {
+  cardId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  correctOptionId?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  front?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  options?: Resolver<Array<ResolversTypes['QuizOption']>, ParentType, ContextType>;
 };
 
 export type UserResolvers<ContextType = any, ParentType extends ResolversParentTypes['User'] = ResolversParentTypes['User']> = {
@@ -244,6 +296,9 @@ export type Resolvers<ContextType = any> = {
   Deck?: DeckResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
+  QuizOption?: QuizOptionResolvers<ContextType>;
+  QuizPage?: QuizPageResolvers<ContextType>;
+  QuizQuestion?: QuizQuestionResolvers<ContextType>;
   User?: UserResolvers<ContextType>;
 };
 

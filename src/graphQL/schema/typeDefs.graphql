@@ -3,6 +3,7 @@ type Query {
   me: User
   myDecks: [Deck!]!
   deck(id: ID!, offset: Int, limit: Int): Deck
+  quizQuestions(deckId: ID!, offset: Int, limit: Int): QuizPage!
 }
 
 type Mutation {
@@ -37,4 +38,21 @@ type Card {
   front: String!
   back: String!
   position: Int!
+}
+
+type QuizPage {
+  questions: [QuizQuestion!]!
+  totalCards: Int!
+}
+
+type QuizQuestion {
+  cardId: ID!
+  front: String!
+  options: [QuizOption!]!
+  correctOptionId: ID!
+}
+
+type QuizOption {
+  id: ID!
+  text: String!
 }
