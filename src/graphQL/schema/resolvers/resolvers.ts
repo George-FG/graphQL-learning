@@ -8,7 +8,7 @@ import {
   signAccessToken,
 } from "../../../lib/auth";
 import { parseAnkiFile } from "../../../lib/ankiParser";
-import { generateDistractorsBatch } from "../../../lib/llmDistractors";
+import { generateDistractorsBatch, stripHtml } from "../../../lib/llmDistractors";
 import type { GraphQLContext } from "@generated/context";
 
 const REFRESH_COOKIE_NAME = "refreshToken";
@@ -220,7 +220,7 @@ export const resolvers: Resolvers<GraphQLContext> = {
         );
         return [...shuffle(nearby), ...shuffle(far)]
           .slice(0, count)
-          .map((c) => c.back);
+          .map((c) => stripHtml(c.back));
       }
 
       // Determine which cards need LLM generation (cache miss)
@@ -289,7 +289,7 @@ export const resolvers: Resolvers<GraphQLContext> = {
         }));
 
         const allOptions = shuffle([
-          { id: idStr, text: card.back },
+          { id: idStr, text: stripHtml(card.back) },
           ...distractorOptions,
         ]);
 
