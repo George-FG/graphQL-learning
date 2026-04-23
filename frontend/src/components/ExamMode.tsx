@@ -4,7 +4,6 @@ import { QUIZ_QUESTIONS_QUERY } from "../graphql/queries";
 import type { Query, QueryQuizQuestionsArgs, QuizQuestion } from "@generated/generated";
 
 const BATCH_SIZE = 5;
-const PREFETCH_AT = 2;
 
 type QuizResponse = Pick<Query, "quizQuestions">;
 
@@ -16,6 +15,21 @@ type Props = {
   totalCards: number;
   onClose: () => void;
 };
+
+/**
+ * Clean up plain-text option strings:
+ * - Remove trailing punctuation (. , ; :)
+ * - Insert a line break where a full stop is followed by a number + dot
+ *   (e.g. "foo. 2. bar" → "foo.<br>2. bar")
+ */
+function formatOptionText(text: string): string {
+  let out = text
+    // Insert <br> and drop the preceding full stop before a new list item
+    .replace(/\.\s+(\d+\.)/g, "<br>$1");
+  // Strip trailing punctuation
+  out = out.replace(/[.,;:]+$/, "");
+  return out;
+}
 
 export default function ExamMode({ deckId, deckName, totalCards, onClose }: Props) {
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -53,9 +67,10 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId]);
 
-  // Prefetch next batch when within PREFETCH_AT of the buffer end
+  // Fetch next batch exactly when the user lands on the last question
+  // of the current buffer — no earlier
   useEffect(() => {
-    if (qIndex >= questions.length - PREFETCH_AT) {
+    if (questions.length > 0 && qIndex === questions.length - 1) {
       fetch(questions.length);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,7 +174,7 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
                   </span>
                   <span
                     className="exam-option-text"
-                    dangerouslySetInnerHTML={{ __html: opt.text }}
+                    dangerouslySetInnerHTML={{ __html: formatOptionText(opt.text) }}
                   />
                   {submitted && isCorrect && (
                     <span className="exam-option-badge exam-option-badge--correct">✓ Correct</span>
