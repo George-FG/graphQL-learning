@@ -92,9 +92,13 @@ export function AuthBootstrapProvider({
 
   if (!ready) {
     return (
-      <div className="page-shell">
-        <div className="auth-card landing-card">
-          <h1>Loading...</h1>
+      <div className="app-layout">
+        <div className="app-main">
+          <div className="form-shell">
+            <div className="auth-card landing-card">
+              <h1>Loading...</h1>
+            </div>
+          </div>
         </div>
       </div>
     );

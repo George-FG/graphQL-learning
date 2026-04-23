@@ -19,7 +19,7 @@ export default function AuthFormLayout({
   footerLinkTo,
 }: Props) {
   return (
-    <div className="page-shell">
+    <div className="form-shell">
       <div className="auth-card">
         <div className="auth-header">
           <h1>{title}</h1>

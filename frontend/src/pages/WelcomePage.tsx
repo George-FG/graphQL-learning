@@ -25,7 +25,7 @@ export default function WelcomePage() {
 
   if (loading) {
     return (
-      <div className="page-shell">
+      <div className="form-shell">
         <div className="auth-card landing-card">
           <h1>Loading...</h1>
         </div>
@@ -35,7 +35,7 @@ export default function WelcomePage() {
 
   if (error || !user) {
     return (
-      <div className="page-shell">
+      <div className="form-shell">
         <div className="auth-card landing-card">
           <h1>Not logged in</h1>
           <p>Your session is missing or expired.</p>
@@ -48,7 +48,7 @@ export default function WelcomePage() {
   }
 
   return (
-    <div className="page-shell">
+    <div className="form-shell">
       <div className="auth-card landing-card">
         <h1>Welcome, {user.username}</h1>
         <p>You are successfully logged in.</p>
