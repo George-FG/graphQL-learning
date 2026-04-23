@@ -22,12 +22,10 @@ const refreshCookieOptions = {
 function toGraphQLUser(user: {
   id: bigint;
   username: string;
-  numFish: number | null;
 }) {
   return {
     ID: user.id.toString(),
     username: user.username,
-    numFish: user.numFish ?? undefined,
   };
 }
 
@@ -35,7 +33,6 @@ async function createSession(
   user: {
     id: bigint;
     username: string;
-    numFish: number | null;
   },
   context: GraphQLContext
 ) {
@@ -119,7 +116,6 @@ export const resolvers: Resolvers<GraphQLContext> = {
         data: {
           username,
           passwordHash,
-          numFish: args.numFish,
         },
       });
 

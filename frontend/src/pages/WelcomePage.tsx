@@ -52,7 +52,6 @@ export default function WelcomePage() {
       <div className="auth-card landing-card">
         <h1>Welcome, {user.username}</h1>
         <p>You are successfully logged in.</p>
-        <p>Fish owned: {user.numFish ?? 0}</p>
 
         <button className="primary-button" onClick={() => navigate("/")}>
           Back Home
