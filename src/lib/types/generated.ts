@@ -22,12 +22,36 @@ export type AuthResult = {
   accessToken: Scalars['String']['output'];
 };
 
+export type Card = {
+  __typename?: 'Card';
+  back: Scalars['String']['output'];
+  front: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  position: Scalars['Int']['output'];
+};
+
+export type Deck = {
+  __typename?: 'Deck';
+  cardCount: Scalars['Int']['output'];
+  cards: Array<Card>;
+  createdAt: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
 export type Mutation = {
   __typename?: 'Mutation';
+  deleteDeck: Scalars['Boolean']['output'];
   login: AuthResult;
   logout: Scalars['Boolean']['output'];
   refreshSession: AuthResult;
   signUp: AuthResult;
+  uploadDeck: Deck;
+};
+
+
+export type MutationDeleteDeckArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -42,10 +66,23 @@ export type MutationSignUpArgs = {
   username: Scalars['String']['input'];
 };
 
+
+export type MutationUploadDeckArgs = {
+  fileContent: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+};
+
 export type Query = {
   __typename?: 'Query';
+  deck?: Maybe<Deck>;
   getUserByID: User;
   me?: Maybe<User>;
+  myDecks: Array<Deck>;
+};
+
+
+export type QueryDeckArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -134,7 +171,10 @@ export type DirectiveResolverFn<TResult = Record<PropertyKey, never>, TParent = 
 export type ResolversTypes = {
   AuthResult: ResolverTypeWrapper<AuthResult>;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  Card: ResolverTypeWrapper<Card>;
+  Deck: ResolverTypeWrapper<Deck>;
   ID: ResolverTypeWrapper<Scalars['ID']['output']>;
+  Int: ResolverTypeWrapper<Scalars['Int']['output']>;
   Mutation: ResolverTypeWrapper<Record<PropertyKey, never>>;
   Query: ResolverTypeWrapper<Record<PropertyKey, never>>;
   String: ResolverTypeWrapper<Scalars['String']['output']>;
@@ -145,7 +185,10 @@ export type ResolversTypes = {
 export type ResolversParentTypes = {
   AuthResult: AuthResult;
   Boolean: Scalars['Boolean']['output'];
+  Card: Card;
+  Deck: Deck;
   ID: Scalars['ID']['output'];
+  Int: Scalars['Int']['output'];
   Mutation: Record<PropertyKey, never>;
   Query: Record<PropertyKey, never>;
   String: Scalars['String']['output'];
@@ -157,16 +200,35 @@ export type AuthResultResolvers<ContextType = any, ParentType extends ResolversP
   accessToken?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 };
 
+export type CardResolvers<ContextType = any, ParentType extends ResolversParentTypes['Card'] = ResolversParentTypes['Card']> = {
+  back?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  front?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  position?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+};
+
+export type DeckResolvers<ContextType = any, ParentType extends ResolversParentTypes['Deck'] = ResolversParentTypes['Deck']> = {
+  cardCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
+  cards?: Resolver<Array<ResolversTypes['Card']>, ParentType, ContextType>;
+  createdAt?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
+  name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+};
+
 export type MutationResolvers<ContextType = any, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = {
+  deleteDeck?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<MutationDeleteDeckArgs, 'id'>>;
   login?: Resolver<ResolversTypes['AuthResult'], ParentType, ContextType, RequireFields<MutationLoginArgs, 'password' | 'username'>>;
   logout?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   refreshSession?: Resolver<ResolversTypes['AuthResult'], ParentType, ContextType>;
   signUp?: Resolver<ResolversTypes['AuthResult'], ParentType, ContextType, RequireFields<MutationSignUpArgs, 'password' | 'username'>>;
+  uploadDeck?: Resolver<ResolversTypes['Deck'], ParentType, ContextType, RequireFields<MutationUploadDeckArgs, 'fileContent' | 'name'>>;
 };
 
 export type QueryResolvers<ContextType = any, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
+  deck?: Resolver<Maybe<ResolversTypes['Deck']>, ParentType, ContextType, RequireFields<QueryDeckArgs, 'id'>>;
   getUserByID?: Resolver<ResolversTypes['User'], ParentType, ContextType, RequireFields<QueryGetUserByIdArgs, 'ID'>>;
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
+  myDecks?: Resolver<Array<ResolversTypes['Deck']>, ParentType, ContextType>;
 };
 
 export type UserResolvers<ContextType = any, ParentType extends ResolversParentTypes['User'] = ResolversParentTypes['User']> = {
@@ -176,6 +238,8 @@ export type UserResolvers<ContextType = any, ParentType extends ResolversParentT
 
 export type Resolvers<ContextType = any> = {
   AuthResult?: AuthResultResolvers<ContextType>;
+  Card?: CardResolvers<ContextType>;
+  Deck?: DeckResolvers<ContextType>;
   Mutation?: MutationResolvers<ContextType>;
   Query?: QueryResolvers<ContextType>;
   User?: UserResolvers<ContextType>;

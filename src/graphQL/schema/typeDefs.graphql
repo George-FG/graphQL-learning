@@ -1,6 +1,8 @@
 type Query {
   getUserByID(ID: ID!): User!
   me: User
+  myDecks: [Deck!]!
+  deck(id: ID!): Deck
 }
 
 type Mutation {
@@ -8,6 +10,8 @@ type Mutation {
   login(username: String!, password: String!): AuthResult!
   refreshSession: AuthResult!
   logout: Boolean!
+  uploadDeck(name: String!, fileContent: String!): Deck!
+  deleteDeck(id: ID!): Boolean!
 }
 
 type User {
@@ -18,4 +22,19 @@ type User {
 type AuthResult {
   accessToken: String!
   User: User!
+}
+
+type Deck {
+  id: ID!
+  name: String!
+  createdAt: String!
+  cardCount: Int!
+  cards: [Card!]!
+}
+
+type Card {
+  id: ID!
+  front: String!
+  back: String!
+  position: Int!
 }

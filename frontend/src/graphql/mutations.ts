@@ -41,3 +41,20 @@ export const LOGOUT_MUTATION = gql`
     logout
   }
 `;
+
+export const UPLOAD_DECK_MUTATION = gql`
+  mutation UploadDeck($name: String!, $fileContent: String!) {
+    uploadDeck(name: $name, fileContent: $fileContent) {
+      id
+      name
+      cardCount
+      createdAt
+    }
+  }
+`;
+
+export const DELETE_DECK_MUTATION = gql`
+  mutation DeleteDeck($id: ID!) {
+    deleteDeck(id: $id)
+  }
+`;

@@ -7,6 +7,7 @@ import {
   hashRefreshToken,
   signAccessToken,
 } from "../../../lib/auth";
+import { parseAnkiFile } from "../../../lib/ankiParser";
 import type { GraphQLContext } from "@generated/context";
 
 const REFRESH_COOKIE_NAME = "refreshToken";
@@ -93,6 +94,58 @@ export const resolvers: Resolvers<GraphQLContext> = {
       }
 
       return toGraphQLUser(user);
+    },
+
+    myDecks: async (_parent, _args, context) => {
+      if (!context.authUser) {
+        throw new Error("Not authenticated");
+      }
+
+      const decks = await prisma.deck.findMany({
+        where: { userId: BigInt(context.authUser.userId) },
+        include: { _count: { select: { cards: true } } },
+        orderBy: { createdAt: "desc" },
+      });
+
+      return decks.map((deck) => ({
+        id: deck.id.toString(),
+        name: deck.name,
+        createdAt: deck.createdAt.toISOString(),
+        cardCount: deck._count.cards,
+        cards: [],
+      }));
+    },
+
+    deck: async (_parent, args, context) => {
+      if (!context.authUser) {
+        throw new Error("Not authenticated");
+      }
+
+      const deck = await prisma.deck.findFirst({
+        where: {
+          id: BigInt(args.id),
+          userId: BigInt(context.authUser.userId),
+        },
+        include: {
+          cards: { orderBy: { position: "asc" } },
+          _count: { select: { cards: true } },
+        },
+      });
+
+      if (!deck) return undefined;
+
+      return {
+        id: deck.id.toString(),
+        name: deck.name,
+        createdAt: deck.createdAt.toISOString(),
+        cardCount: deck._count.cards,
+        cards: deck.cards.map((c) => ({
+          id: c.id.toString(),
+          front: c.front,
+          back: c.back,
+          position: c.position,
+        })),
+      };
     },
   },
 
@@ -237,6 +290,62 @@ export const resolvers: Resolvers<GraphQLContext> = {
         path: "/",
       });
 
+      return true;
+    },
+
+    uploadDeck: async (_parent, args, context) => {
+      if (!context.authUser) {
+        throw new Error("Not authenticated");
+      }
+
+      const cards = parseAnkiFile(args.fileContent);
+      if (cards.length === 0) {
+        throw new Error("No valid cards found in the uploaded file");
+      }
+
+      const deck = await prisma.deck.create({
+        data: {
+          userId: BigInt(context.authUser.userId),
+          name: args.name,
+          cards: {
+            create: cards.map((card, index) => ({
+              front: card.front,
+              back: card.back,
+              position: index,
+            })),
+          },
+        },
+        include: {
+          _count: { select: { cards: true } },
+        },
+      });
+
+      return {
+        id: deck.id.toString(),
+        name: deck.name,
+        createdAt: deck.createdAt.toISOString(),
+        cardCount: deck._count.cards,
+        cards: [],
+      };
+    },
+
+    deleteDeck: async (_parent, args, context) => {
+      if (!context.authUser) {
+        throw new Error("Not authenticated");
+      }
+
+      const deck = await prisma.deck.findFirst({
+        where: {
+          id: BigInt(args.id),
+          userId: BigInt(context.authUser.userId),
+        },
+      });
+
+      if (!deck) {
+        throw new Error("Deck not found");
+      }
+
+      await prisma.deck.delete({ where: { id: deck.id } });
       return true;
     },
   },
