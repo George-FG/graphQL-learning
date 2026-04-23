@@ -83,6 +83,8 @@ export type Query = {
 
 export type QueryDeckArgs = {
   id: Scalars['ID']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
 };
 
 

@@ -21,8 +21,8 @@ export const MY_DECKS_QUERY = gql`
 `;
 
 export const DECK_QUERY = gql`
-  query Deck($id: ID!) {
-    deck(id: $id) {
+  query Deck($id: ID!, $offset: Int, $limit: Int) {
+    deck(id: $id, offset: $offset, limit: $limit) {
       id
       name
       cardCount

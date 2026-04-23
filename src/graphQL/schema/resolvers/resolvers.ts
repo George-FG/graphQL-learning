@@ -121,13 +121,21 @@ export const resolvers: Resolvers<GraphQLContext> = {
         throw new Error("Not authenticated");
       }
 
+      const PAGE_SIZE = 10;
+      const offset = Math.max(0, args.offset ?? 0);
+      const limit = Math.min(50, args.limit ?? PAGE_SIZE);
+
       const deck = await prisma.deck.findFirst({
         where: {
           id: BigInt(args.id),
           userId: BigInt(context.authUser.userId),
         },
         include: {
-          cards: { orderBy: { position: "asc" } },
+          cards: {
+            orderBy: { position: "asc" },
+            skip: offset,
+            take: limit,
+          },
           _count: { select: { cards: true } },
         },
       });

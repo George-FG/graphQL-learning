@@ -2,7 +2,7 @@ type Query {
   getUserByID(ID: ID!): User!
   me: User
   myDecks: [Deck!]!
-  deck(id: ID!): Deck
+  deck(id: ID!, offset: Int, limit: Int): Deck
 }
 
 type Mutation {

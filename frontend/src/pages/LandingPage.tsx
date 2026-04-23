@@ -1,38 +1,29 @@
 import { useState } from "react";
-import { useLazyQuery, useMutation, useQuery } from "@apollo/client/react";
+import { useMutation, useQuery } from "@apollo/client/react";
 import { useAuthBootstrap } from "../context/AuthBootstrap";
 import { DELETE_DECK_MUTATION } from "../graphql/mutations";
-import { DECK_QUERY, MY_DECKS_QUERY } from "../graphql/queries";
+import { MY_DECKS_QUERY } from "../graphql/queries";
 import FlashcardViewer from "../components/FlashcardViewer";
-import type { Mutation, MutationDeleteDeckArgs, Query, QueryDeckArgs } from "@generated/generated";
+import type { Mutation, MutationDeleteDeckArgs, Query } from "@generated/generated";
 
 type MyDecksResponse = Pick<Query, "myDecks">;
-type DeckResponse = Pick<Query, "deck">;
 type DeleteDeckResponse = Pick<Mutation, "deleteDeck">;
+
+type ActiveDeck = { id: string; name: string; cardCount: number };
 
 export default function LandingPage() {
   const { isLoggedIn } = useAuthBootstrap();
-  const [activeDeckId, setActiveDeckId] = useState<string | null>(null);
+  const [activeDeck, setActiveDeck] = useState<ActiveDeck | null>(null);
 
   const { data: decksData, loading: decksLoading } = useQuery<MyDecksResponse>(
     MY_DECKS_QUERY,
     { skip: !isLoggedIn, fetchPolicy: "cache-and-network" }
   );
 
-  const [fetchDeck, { data: deckData, loading: deckLoading }] = useLazyQuery<
-    DeckResponse,
-    QueryDeckArgs
-  >(DECK_QUERY);
-
   const [deleteDeck] = useMutation<DeleteDeckResponse, MutationDeleteDeckArgs>(
     DELETE_DECK_MUTATION,
     { refetchQueries: [{ query: MY_DECKS_QUERY }] }
   );
-
-  const handleSelectDeck = (id: string) => {
-    setActiveDeckId(id);
-    void fetchDeck({ variables: { id } });
-  };
 
   const handleDeleteDeck = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -41,7 +32,6 @@ export default function LandingPage() {
   };
 
   const decks = decksData?.myDecks ?? [];
-  const openDeck = deckData?.deck;
 
   if (!isLoggedIn) {
     return (
@@ -70,7 +60,7 @@ export default function LandingPage() {
             <li key={deck.id} className="deck-item">
               <button
                 className="deck-item-btn"
-                onClick={() => handleSelectDeck(deck.id)}
+                onClick={() => setActiveDeck({ id: deck.id, name: deck.name, cardCount: deck.cardCount })}
               >
                 <span className="deck-name">{deck.name}</span>
                 <span className="deck-meta">{deck.cardCount} cards</span>
@@ -88,21 +78,15 @@ export default function LandingPage() {
         </ul>
       )}
 
-      {activeDeckId && (
-        deckLoading ? (
-          <div className="modal-backdrop">
-            <div className="modal-card">
-              <p>Loading cards…</p>
-            </div>
-          </div>
-        ) : openDeck ? (
-          <FlashcardViewer
-            deckName={openDeck.name}
-            cards={openDeck.cards}
-            onClose={() => setActiveDeckId(null)}
-          />
-        ) : null
+      {activeDeck && (
+        <FlashcardViewer
+          deckId={activeDeck.id}
+          deckName={activeDeck.name}
+          totalCards={activeDeck.cardCount}
+          onClose={() => setActiveDeck(null)}
+        />
       )}
     </div>
   );
 }
+
