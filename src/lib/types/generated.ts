@@ -70,6 +70,7 @@ export type MutationSignUpArgs = {
 export type MutationUploadDeckArgs = {
   fileContent: Scalars['String']['input'];
   name: Scalars['String']['input'];
+  shuffle?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type Query = {

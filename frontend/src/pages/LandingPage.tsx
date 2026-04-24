@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
+import { useApolloClient } from "@apollo/client/react";
 import { useAuthBootstrap } from "../context/AuthBootstrap";
 import { DELETE_DECK_MUTATION } from "../graphql/mutations";
 import { MY_DECKS_QUERY } from "../graphql/queries";
@@ -23,9 +24,24 @@ export default function LandingPage() {
     { skip: !isLoggedIn, fetchPolicy: "cache-and-network" }
   );
 
+  const apollo = useApolloClient();
+
   const [deleteDeck] = useMutation<DeleteDeckResponse, MutationDeleteDeckArgs>(
     DELETE_DECK_MUTATION,
-    { refetchQueries: [{ query: MY_DECKS_QUERY }] }
+    {
+      refetchQueries: [{ query: MY_DECKS_QUERY }],
+      update(cache, _result, { variables }) {
+        const deckId = variables?.id;
+        if (!deckId) return;
+        // Evict normalised Deck object (removes it from all queries that reference it)
+        cache.evict({ id: cache.identify({ __typename: "Deck", id: deckId }) });
+        // Evict paginated deck card queries for this deck
+        cache.evict({ id: "ROOT_QUERY", fieldName: "deck" });
+        // Evict all cached quiz question batches (loaded on-demand, safe to purge)
+        cache.evict({ id: "ROOT_QUERY", fieldName: "quizQuestions" });
+        cache.gc();
+      },
+    }
   );
 
   const openDeck = (deck: ActiveDeck, m: Mode) => {

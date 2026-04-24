@@ -11,7 +11,7 @@ type Mutation {
   login(username: String!, password: String!): AuthResult!
   refreshSession: AuthResult!
   logout: Boolean!
-  uploadDeck(name: String!, fileContent: String!): Deck!
+  uploadDeck(name: String!, fileContent: String!, shuffle: Boolean): Deck!
   deleteDeck(id: ID!): Boolean!
 }
 

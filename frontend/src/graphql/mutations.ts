@@ -43,8 +43,8 @@ export const LOGOUT_MUTATION = gql`
 `;
 
 export const UPLOAD_DECK_MUTATION = gql`
-  mutation UploadDeck($name: String!, $fileContent: String!) {
-    uploadDeck(name: $name, fileContent: $fileContent) {
+  mutation UploadDeck($name: String!, $fileContent: String!, $shuffle: Boolean) {
+    uploadDeck(name: $name, fileContent: $fileContent, shuffle: $shuffle) {
       id
       name
       cardCount

@@ -16,6 +16,7 @@ export default function UploadDeckModal({ onClose }: Props) {
   const [fileName, setFileName] = useState("");
   const [fileContent, setFileContent] = useState("");
   const [localError, setLocalError] = useState("");
+  const [shuffleDeck, setShuffleDeck] = useState(false);
 
   const [uploadDeck, { loading, error }] = useMutation<
     UploadDeckResponse,
@@ -58,7 +59,7 @@ export default function UploadDeckModal({ onClose }: Props) {
       return;
     }
 
-    await uploadDeck({ variables: { name: trimmedName, fileContent } });
+    await uploadDeck({ variables: { name: trimmedName, fileContent, shuffle: shuffleDeck } });
     onClose();
   };
 
@@ -86,6 +87,15 @@ export default function UploadDeckModal({ onClose }: Props) {
               placeholder="e.g. Respiratory Physiology"
               required
             />
+          </label>
+
+          <label className="field field--checkbox">
+            <input
+              type="checkbox"
+              checked={shuffleDeck}
+              onChange={(e) => setShuffleDeck(e.target.checked)}
+            />
+            <span>Shuffle card order</span>
           </label>
 
           <div className="file-field">

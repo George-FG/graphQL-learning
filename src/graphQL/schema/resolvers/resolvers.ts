@@ -8,7 +8,7 @@ import {
   signAccessToken,
 } from "../../../lib/auth";
 import { parseAnkiFile } from "../../../lib/ankiParser";
-import { generateDistractorsBatch, stripHtml } from "../../../lib/llmDistractors";
+import { generateMCQSets, stripHtml, type MCQSet } from "../../../lib/llmDistractors";
 import type { GraphQLContext } from "@generated/context";
 
 const REFRESH_COOKIE_NAME = "refreshToken";
@@ -162,7 +162,7 @@ export const resolvers: Resolvers<GraphQLContext> = {
         throw new Error("Not authenticated");
       }
 
-      const BATCH = Math.min(10, Math.max(1, args.limit ?? 5));
+      const BATCH = Math.min(2, Math.max(1, args.limit ?? 2));
       const offset = Math.max(0, args.offset ?? 0);
 
       const deckMeta = await prisma.deck.findFirst({
@@ -208,6 +208,22 @@ export const resolvers: Resolvers<GraphQLContext> = {
         return a;
       }
 
+      /** Deterministic shuffle seeded by card ID — same card always gives the same option order. */
+      function seededShuffle<T>(arr: T[], seed: bigint): T[] {
+        const a = [...arr];
+        // Simple LCG using card id as seed
+        let s = Number(seed % BigInt(2 ** 31));
+        const rand = () => {
+          s = (s * 1664525 + 1013904223) & 0x7fffffff;
+          return s / 0x7fffffff;
+        };
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(rand() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
       function positionDistractors(
         card: { id: bigint; position: number },
         count: number
@@ -228,14 +244,21 @@ export const resolvers: Resolvers<GraphQLContext> = {
         if (!c.distractors) return true;
         try {
           const parsed = JSON.parse(c.distractors) as unknown;
-          return !Array.isArray(parsed) || (parsed as unknown[]).length < 3;
+          return (
+            typeof parsed !== "object" ||
+            parsed === null ||
+            !("question" in (parsed as object)) ||
+            !("correct" in (parsed as object)) ||
+            !Array.isArray((parsed as MCQSet).distractors) ||
+            (parsed as MCQSet).distractors.length < 3
+          );
         } catch { return true; }
       });
 
-      // Single Groq request for all uncached cards
-      const llmCache: Record<string, string[]> = {};
+      // One LLM request per uncached card (sequential)
+      const llmCache: Record<string, MCQSet> = {};
       if (uncachedCards.length > 0) {
-        const batchResult = await generateDistractorsBatch(
+        const batchResult = await generateMCQSets(
           uncachedCards.map((c) => ({
             id: c.id.toString(),
             front: c.front,
@@ -248,12 +271,12 @@ export const resolvers: Resolvers<GraphQLContext> = {
 
           // Persist new cache entries (fire-and-forget)
           for (const card of uncachedCards) {
-            const distractors = llmCache[card.id.toString()];
-            if (distractors?.length >= 3) {
+            const mcq = llmCache[card.id.toString()];
+            if (mcq) {
               prisma.card
                 .update({
                   where: { id: card.id },
-                  data: { distractors: JSON.stringify(distractors) },
+                  data: { distractors: JSON.stringify(mcq) },
                 })
                 .catch(() => {/* non-critical */});
             }
@@ -265,37 +288,51 @@ export const resolvers: Resolvers<GraphQLContext> = {
       const questions = questionCards.map((card) => {
         const idStr = card.id.toString();
 
-        // Resolve distractors: LLM cache > DB cache > position fallback
-        let distractorTexts: string[] = [];
+        // Resolve MCQSet: LLM cache > DB cache > position fallback
+        let mcq: MCQSet | null = null;
 
-        if (llmCache[idStr]?.length >= 3) {
-          distractorTexts = llmCache[idStr];
+        if (llmCache[idStr]) {
+          mcq = llmCache[idStr];
         } else if (card.distractors) {
           try {
             const cached = JSON.parse(card.distractors) as unknown;
-            if (Array.isArray(cached) && (cached as unknown[]).length >= 3) {
-              distractorTexts = cached as string[];
+            if (
+              typeof cached === "object" &&
+              cached !== null &&
+              "question" in (cached as object) &&
+              "correct" in (cached as object) &&
+              Array.isArray((cached as MCQSet).distractors) &&
+              (cached as MCQSet).distractors.length >= 3
+            ) {
+              mcq = cached as MCQSet;
             }
           } catch {/* fall through */}
         }
 
-        if (distractorTexts.length < 3) {
+        let correctText: string;
+        let distractorTexts: string[];
+
+        if (mcq) {
+          correctText = mcq.correct;
+          distractorTexts = mcq.distractors.slice(0, 3);
+        } else {
+          correctText = stripHtml(card.back);
           distractorTexts = positionDistractors(card, 3);
         }
 
-        const distractorOptions = distractorTexts.slice(0, 3).map((text, i) => ({
+        const distractorOptions = distractorTexts.map((text, i) => ({
           id: `${idStr}_d${i}`,
           text,
         }));
 
-        const allOptions = shuffle([
-          { id: idStr, text: stripHtml(card.back) },
+        const allOptions = seededShuffle([
+          { id: idStr, text: correctText },
           ...distractorOptions,
-        ]);
+        ], card.id);
 
         return {
           cardId: idStr,
-          front: card.front,
+          front: mcq ? mcq.question : stripHtml(card.front),
           options: allOptions,
           correctOptionId: idStr,
         };
@@ -454,9 +491,16 @@ export const resolvers: Resolvers<GraphQLContext> = {
         throw new Error("Not authenticated");
       }
 
-      const cards = parseAnkiFile(args.fileContent);
+      let cards = parseAnkiFile(args.fileContent);
       if (cards.length === 0) {
         throw new Error("No valid cards found in the uploaded file");
+      }
+
+      if (args.shuffle) {
+        for (let i = cards.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [cards[i], cards[j]] = [cards[j], cards[i]];
+        }
       }
 
       const deck = await prisma.deck.create({
@@ -500,6 +544,13 @@ export const resolvers: Resolvers<GraphQLContext> = {
       if (!deck) {
         throw new Error("Deck not found");
       }
+
+      // Explicitly clear LLM cache before deletion (cascade would remove the
+      // rows anyway, but this makes the intent explicit and future-proof).
+      await prisma.card.updateMany({
+        where: { deckId: deck.id },
+        data: { distractors: null },
+      });
 
       await prisma.deck.delete({ where: { id: deck.id } });
       return true;

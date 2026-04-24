@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useLazyQuery } from "@apollo/client/react";
 import { QUIZ_QUESTIONS_QUERY } from "../graphql/queries";
 import type { Query, QueryQuizQuestionsArgs, QuizQuestion } from "@generated/generated";
 
-const BATCH_SIZE = 5;
+const BATCH_SIZE = 2;
 
 type QuizResponse = Pick<Query, "quizQuestions">;
 
@@ -24,18 +24,41 @@ type Props = {
  */
 function formatOptionText(text: string): string {
   let out = text
-    // Insert <br> and drop the preceding full stop before a new list item
     .replace(/\.\s+(\d+\.)/g, "<br>$1");
-  // Strip trailing punctuation
   out = out.replace(/[.,;:]+$/, "");
   return out;
 }
 
 export default function ExamMode({ deckId, deckName, totalCards, onClose }: Props) {
+  const storageKey = `examProgress_${deckId}`;
+
+  const savedIndex = useMemo(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (!raw) return 0;
+      const parsed = JSON.parse(raw) as { lastIndex: number };
+      return typeof parsed.lastIndex === "number" &&
+        parsed.lastIndex > 0 &&
+        parsed.lastIndex < totalCards
+        ? parsed.lastIndex
+        : 0;
+    } catch { return 0; }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [resumeAsked, setResumeAsked] = useState(savedIndex > 0);
+  const [baseOffset, setBaseOffset] = useState(0);
+
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [answerState, setAnswerState] = useState<AnswerState>("unanswered");
+
+  // Session stats
+  const [correctCount, setCorrectCount] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
+  const [avgSeconds, setAvgSeconds] = useState<number | null>(null);
+  const questionStartRef = useRef<number>(0);
 
   const fetchedOffsets = useRef(new Set<number>());
 
@@ -47,51 +70,113 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
   useEffect(() => {
     const incoming = fetchedData?.quizQuestions?.questions ?? [];
     if (incoming.length === 0) return;
-    setQuestions((prev) => {
-      const existingIds = new Set(prev.map((q) => q.cardId));
-      const fresh = incoming.filter((q) => !existingIds.has(q.cardId));
-      return [...prev, ...fresh];
+    startTransition(() => {
+      setQuestions((prev) => {
+        const existingIds = new Set(prev.map((q) => q.cardId));
+        const fresh = incoming.filter((q) => !existingIds.has(q.cardId));
+        return [...prev, ...fresh];
+      });
     });
   }, [fetchedData]);
 
-  const fetch = (offset: number) => {
+  const fetchBatch = (offset: number) => {
     if (fetchedOffsets.current.has(offset)) return;
     if (offset >= totalCards) return;
     fetchedOffsets.current.add(offset);
     void fetchQuestions({ variables: { deckId, offset, limit: BATCH_SIZE } });
   };
 
-  // Fetch first batch on mount
+  // Fetch first batch once resume decision is made
   useEffect(() => {
-    fetch(0);
+    if (resumeAsked) return;
+    fetchBatch(baseOffset);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deckId]);
+  }, [resumeAsked, baseOffset]);
 
-  // Fetch next batch exactly when the user lands on the last question
-  // of the current buffer — no earlier
+  // Reset start time when question changes
   useEffect(() => {
+    questionStartRef.current = Date.now();
+  }, [qIndex]);
+
+  // Prefetch next batch exactly when landing on last question of buffer
+  useEffect(() => {
+    if (resumeAsked) return;
     if (questions.length > 0 && qIndex === questions.length - 1) {
-      fetch(questions.length);
+      fetchBatch(baseOffset + questions.length);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [qIndex, questions.length]);
+  }, [qIndex, questions.length, resumeAsked]);
 
   const isLoaded = questions.length > 0;
   const question = questions[qIndex] ?? null;
-  const isLast = qIndex === totalCards - 1;
+  const globalIndex = baseOffset + qIndex;
+  const isLast = globalIndex === totalCards - 1;
   const nextBuffered = questions[qIndex + 1] != null;
   const submitted = answerState !== "unanswered";
+  const totalAnswered = correctCount + wrongCount;
 
   const handleSubmit = () => {
     if (!selected || !question) return;
-    setAnswerState(selected === question.correctOptionId ? "correct" : "wrong");
+    const isCorrect = selected === question.correctOptionId;
+    setAnswerState(isCorrect ? "correct" : "wrong");
+
+    const elapsed = Math.round((Date.now() - questionStartRef.current) / 1000);
+    if (isCorrect) setCorrectCount((n) => n + 1);
+    else setWrongCount((n) => n + 1);
+
+    setAvgSeconds((prev) =>
+      prev === null ? elapsed : Math.round((prev * totalAnswered + elapsed) / (totalAnswered + 1))
+    );
   };
 
   const handleNext = () => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ lastIndex: globalIndex + 1 }));
+    } catch { /* ignore */ }
     setSelected(null);
     setAnswerState("unanswered");
     setQIndex((i) => i + 1);
   };
+
+  const handleFinish = () => {
+    try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
+    onClose();
+  };
+
+  const handleResume = () => {
+    setBaseOffset(savedIndex);
+    setResumeAsked(false);
+  };
+
+  const handleStartOver = () => {
+    try { localStorage.removeItem(storageKey); } catch { /* ignore */ }
+    setBaseOffset(0);
+    setResumeAsked(false);
+  };
+
+  // Resume prompt
+  if (resumeAsked) {
+    return (
+      <div className="modal-backdrop" onClick={onClose}>
+        <div
+          className="modal-card"
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="resume-title"
+        >
+          <h2 id="resume-title">{deckName}</h2>
+          <p className="modal-subtitle">
+            You left off at <strong>question {savedIndex + 1}</strong> of {totalCards}.
+          </p>
+          <div className="modal-actions">
+            <button className="secondary-button" onClick={handleStartOver}>Start Over</button>
+            <button className="primary-button" onClick={handleResume}>Resume from Q{savedIndex + 1}</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!isLoaded) {
     return (
@@ -107,14 +192,15 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
     return (
       <div className="modal-backdrop" onClick={onClose}>
         <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-          <p>{nextBuffered === false && !isLast ? "Loading next question…" : "All questions complete!"}</p>
-          <button className="primary-button" onClick={onClose}>Close</button>
+          <p>{!nextBuffered && !isLast ? "Loading next question…" : "All questions complete!"}</p>
+          <button className="primary-button" onClick={handleFinish}>Close</button>
         </div>
       </div>
     );
   }
 
-  const progress = ((qIndex + 1) / totalCards) * 100;
+  const progress = ((globalIndex + 1) / totalCards) * 100;
+  const pct = totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 100) : null;
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -132,7 +218,7 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
             <button className="flashcard-close" onClick={onClose} aria-label="Close">✕</button>
           </div>
           <div className="exam-progress-row">
-            <span className="exam-counter">Question {qIndex + 1} of {totalCards}</span>
+            <span className="exam-counter">Question {globalIndex + 1} of {totalCards}</span>
           </div>
           <div className="exam-progress-bar">
             <div className="exam-progress-fill" style={{ width: `${progress}%` }} />
@@ -188,12 +274,13 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
           })}
         </ol>
 
-        {/* Feedback */}
-        {submitted && (
-          <div className={`exam-feedback ${answerState === "correct" ? "exam-feedback--correct" : "exam-feedback--wrong"}`}>
-            {answerState === "correct"
-              ? "Correct! Well done."
-              : "Incorrect. The correct answer is highlighted above."}
+        {/* Session stats — replaces the old feedback banner */}
+        {totalAnswered > 0 && (
+          <div className={`exam-stats ${pct !== null && pct >= 60 ? "exam-stats--good" : "exam-stats--poor"}`}>
+            <span>{correctCount}/{totalAnswered} correct ({pct}%)</span>
+            {avgSeconds !== null && (
+              <span className="exam-stats-avg">· avg {avgSeconds}s</span>
+            )}
           </div>
         )}
 
@@ -208,7 +295,7 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
               Submit Answer
             </button>
           ) : isLast ? (
-            <button className="primary-button" onClick={onClose}>
+            <button className="primary-button" onClick={handleFinish}>
               Finish
             </button>
           ) : (
