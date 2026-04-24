@@ -25,48 +25,50 @@ type MCQResponse = {
   distractors: [string, string, string];
 };
 
+type BatchMCQResponse = {
+  mcqs: MCQResponse[];
+};
+
+const BATCH_SIZE = 2;
+
 const SYSTEM_PROMPT = `You write multiple-choice questions for exam flashcards.
 
-Given a flashcard front and back, generate:
-1. A clear, concise exam-style question based on the flashcard content.
-2. The correct answer (copy it verbatim from the flashcard back).
+You will receive one or more numbered flashcards. For each one, generate:
+1. A clear, concise exam-style question based on that flashcard's content.
+2. The correct answer (copy it verbatim from that flashcard's back).
 3. Exactly 3 wrong answers that are plausible but incorrect.
 
-Rules:
-- The question must be directly answerable by the correct answer.
-- All four answers (correct + 3 wrong) must be derived exclusively from the flashcard content you are given. Do not borrow, adapt, or reference content from anywhere else, including these examples.
+Critical rules:
+- Each card's question and all four answers must be derived EXCLUSIVELY from that card's own front and back. Do not use content from any other card.
 - Wrong answers must match the type and format of the correct answer (same length, same structure — phrase for phrase, list for list).
 - Wrong answers should be close misconceptions, swapped mechanisms, wrong locations, or sibling concepts.
 - Do not include explanations or extra text in any field.
-- Return only valid JSON matching the schema.
+- Return only valid JSON: { "mcqs": [ ...one object per card, in order... ] }
 
 The examples below illustrate the required JSON format only. Their content must not appear in your output.
 
-Format example 1 (short phrase answer):
-Flashcard front: "Who founded the city of Constantinople?"
-Flashcard back: "Constantine the Great"
+Format example (2 cards):
+Card 1 front: "Who founded the city of Constantinople?"
+Card 1 back: "Constantine the Great"
+Card 2 front: "Cause of the fall of the Western Roman Empire"
+Card 2 back: "Combination of military overstretch, economic decline, and barbarian invasions"
 Output:
 {
-  "question": "Who founded the city of Constantinople?",
-  "correct": "Constantine the Great",
-  "distractors": [
-    "Julius Caesar",
-    "Augustus",
-    "Justinian I"
-  ]
-}
-
-Format example 2 (sentence answer):
-Flashcard front: "Cause of the fall of the Western Roman Empire"
-Flashcard back: "Combination of military overstretch, economic decline, and barbarian invasions"
-Output:
-{
-  "question": "What caused the fall of the Western Roman Empire?",
-  "correct": "Combination of military overstretch, economic decline, and barbarian invasions",
-  "distractors": [
-    "A single decisive naval defeat that destroyed the Roman fleet",
-    "Volcanic eruption that caused widespread famine and depopulation",
-    "Democratic revolution that overthrew the imperial system from within"
+  "mcqs": [
+    {
+      "question": "Who founded the city of Constantinople?",
+      "correct": "Constantine the Great",
+      "distractors": ["Julius Caesar", "Augustus", "Justinian I"]
+    },
+    {
+      "question": "What caused the fall of the Western Roman Empire?",
+      "correct": "Combination of military overstretch, economic decline, and barbarian invasions",
+      "distractors": [
+        "A single decisive naval defeat that destroyed the Roman fleet",
+        "Volcanic eruption that caused widespread famine and depopulation",
+        "Democratic revolution that overthrew the imperial system from within"
+      ]
+    }
   ]
 }`;
 
@@ -74,22 +76,24 @@ export function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
-function buildUserPrompt(card: CardInput): string {
-  const front = stripHtml(card.front);
-  const back = stripHtml(card.correctAnswer);
-
-  return [
-    `Flashcard front: "${front}"`,
-    `Flashcard back: "${back}"`,
-    ``,
-    `Generate a multiple-choice question with one correct answer and 3 wrong answers.`,
-  ].join("\n");
+function buildBatchPrompt(cards: CardInput[]): string {
+  const lines: string[] = [];
+  cards.forEach((card, i) => {
+    lines.push(`Card ${i + 1} front: "${stripHtml(card.front)}"`);
+    lines.push(`Card ${i + 1} back: "${stripHtml(card.correctAnswer)}"`);
+  });
+  lines.push("");
+  lines.push(
+    `Generate one MCQ per card. Return { "mcqs": [ ...${cards.length} objects in order... ] }.`
+  );
+  return lines.join("\n");
 }
 
 async function callGroq(
   userPrompt: string,
   apiKey: string
-): Promise<MCQResponse | null> {
+): Promise<MCQResponse[] | null> {
+  console.log("requesting...")
   const response = await fetch(GROQ_API_URL, {
     method: "POST",
     headers: {
@@ -103,7 +107,7 @@ async function callGroq(
         { role: "user", content: userPrompt },
       ],
       temperature: 0.4,
-      max_tokens: 800,
+      max_tokens: 1600,
       response_format: { type: "json_object" },
     }),
   });
@@ -129,35 +133,43 @@ async function callGroq(
     return null;
   }
 
-  let parsed: Partial<MCQResponse>;
+  let parsed: Partial<BatchMCQResponse>;
   try {
-    parsed = JSON.parse(content) as Partial<MCQResponse>;
+    parsed = JSON.parse(content) as Partial<BatchMCQResponse>;
   } catch (e) {
     console.error("GROQ content is not valid JSON (possibly truncated):", e, "\nRaw content:", content);
     return null;
   }
-  if (
-    typeof parsed.question !== "string" ||
-    typeof parsed.correct !== "string" ||
-    !Array.isArray(parsed.distractors) ||
-    parsed.distractors.length < 3
-  ) {
+
+  if (!Array.isArray(parsed.mcqs) || parsed.mcqs.length === 0) {
     console.error("GROQ response failed validation:", parsed);
     return null;
   }
 
-  return {
-    question: parsed.question,
-    correct: parsed.correct,
-    distractors: [parsed.distractors[0], parsed.distractors[1], parsed.distractors[2]],
-  };
+  const valid: MCQResponse[] = [];
+  for (const item of parsed.mcqs) {
+    if (
+      typeof item.question === "string" &&
+      typeof item.correct === "string" &&
+      Array.isArray(item.distractors) &&
+      item.distractors.length >= 3
+    ) {
+      valid.push({
+        question: item.question,
+        correct: item.correct,
+        distractors: [item.distractors[0], item.distractors[1], item.distractors[2]],
+      });
+    }
+  }
+
+  return valid.length > 0 ? valid : null;
 }
 
-async function fetchMCQSet(
-  card: CardInput,
+async function fetchMCQBatch(
+  cards: CardInput[],
   apiKey: string
-): Promise<MCQSet | null> {
-  return callGroq(buildUserPrompt(card), apiKey);
+): Promise<MCQResponse[] | null> {
+  return callGroq(buildBatchPrompt(cards), apiKey);
 }
 
 export async function generateMCQSets(
@@ -169,12 +181,18 @@ export async function generateMCQSets(
 
   const results: Record<string, MCQSet> = {};
 
-  for (const card of cards) {
+  // Process cards in batches of BATCH_SIZE
+  for (let i = 0; i < cards.length; i += BATCH_SIZE) {
+    const batch = cards.slice(i, i + BATCH_SIZE);
     try {
-      const mcq = await fetchMCQSet(card, apiKey);
-      if (mcq) results[card.id] = mcq;
+      const mcqs = await fetchMCQBatch(batch, apiKey);
+      if (mcqs) {
+        batch.forEach((card, idx) => {
+          if (mcqs[idx]) results[card.id] = mcqs[idx];
+        });
+      }
     } catch (e) {
-      console.error(`GROQ fetch threw for card ${card.id}:`, e);
+      console.error(`GROQ fetch threw for batch starting at card ${batch[0].id}:`, e);
     }
   }
 
