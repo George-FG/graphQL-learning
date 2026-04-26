@@ -312,6 +312,54 @@ a:hover {
   margin-bottom: 24px;
 }
 
+/* ─── Breadcrumb ──────────────────────────────────────────────── */
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  font-size: 0.9rem;
+}
+
+.breadcrumb-item {
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-link {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #2563eb;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1.4;
+}
+
+.breadcrumb-link:hover {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.breadcrumb-sep {
+  color: #94a3b8;
+  font-size: 1rem;
+  padding: 0 2px;
+  user-select: none;
+}
+
+.breadcrumb-current {
+  padding: 4px 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.4;
+}
+
 .decks-header h2 {
   margin: 0;
   font-size: 1.5rem;

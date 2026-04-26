@@ -55,7 +55,7 @@ export default function Header() {
                 className="header-btn-ghost"
                 onClick={() => setShowUpload(true)}
               >
-                Upload Deck
+                Upload
               </button>
               <button className="header-btn-ghost" onClick={handleLogout}>
                 Log Out
