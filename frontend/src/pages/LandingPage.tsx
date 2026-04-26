@@ -11,14 +11,15 @@ type BrowseResponse = Pick<Query, "browse">;
 type DeleteDeckResponse = Pick<Mutation, "deleteDeck">;
 type DeleteSetResponse = Pick<Mutation, "deleteDeckSet">;
 
-type ActiveDeck = { id: string; name: string; cardCount: number };
-type Mode = "flashcard" | "exam";
+type ExamSource = { type: "deck"; id: string } | { type: "set"; id: string };
+type ActiveSession =
+  | { source: ExamSource; name: string; totalCards: number; mode: "exam" }
+  | { source: { type: "deck"; id: string }; name: string; totalCards: number; mode: "flashcard" };
 type BreadcrumbEntry = { id: string | null; name: string };
 
 export default function LandingPage() {
   const { isLoggedIn } = useAuthBootstrap();
-  const [activeDeck, setActiveDeck] = useState<ActiveDeck | null>(null);
-  const [mode, setMode] = useState<Mode>("flashcard");
+  const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [currentSetId, setCurrentSetId] = useState<string | null>(null);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbEntry[]>([
     { id: null, name: "Home" },
@@ -44,14 +45,14 @@ export default function LandingPage() {
   const enterSet = (set: { id: string; name: string }) => {
     setCurrentSetId(set.id);
     setBreadcrumb((prev) => [...prev, { id: set.id, name: set.name }]);
-    setActiveDeck(null);
+    setActiveSession(null);
   };
 
   const navigateToBreadcrumb = (index: number) => {
     const next = breadcrumb.slice(0, index + 1);
     setBreadcrumb(next);
     setCurrentSetId(next[next.length - 1].id);
-    setActiveDeck(null);
+    setActiveSession(null);
   };
 
   const handleDeleteDeck = async (id: string, e: React.MouseEvent) => {
@@ -72,9 +73,8 @@ export default function LandingPage() {
     });
   };
 
-  const openDeck = (deck: ActiveDeck, m: Mode) => {
-    setMode(m);
-    setActiveDeck(deck);
+  const openExam = (source: ExamSource, name: string, totalCards: number) => {
+    setActiveSession({ source, name, totalCards, mode: "exam" });
   };
 
   const sets = browseData?.browse.sets ?? [];
@@ -139,10 +139,20 @@ export default function LandingPage() {
                   {set.childSetCount > 0 && `${set.childSetCount} set${set.childSetCount !== 1 ? "s" : ""}`}
                   {set.childSetCount > 0 && set.deckCount > 0 && " · "}
                   {set.deckCount > 0 && `${set.deckCount} deck${set.deckCount !== 1 ? "s" : ""}`}
+                  {set.totalCardCount > 0 && ` · ${set.totalCardCount} cards`}
                   {set.childSetCount === 0 && set.deckCount === 0 && "Empty"}
                 </span>
               </div>
               <div className="deck-item-buttons">
+                {set.totalCardCount > 0 && (
+                  <button
+                    className="deck-action-btn deck-action-btn--exam"
+                    onClick={(e) => { e.stopPropagation(); openExam({ type: "set", id: set.id }, set.name, set.totalCardCount); }}
+                    title="Exam mode (all cards in this set)"
+                  >
+                    Exam
+                  </button>
+                )}
                 <button
                   className="deck-delete-btn"
                   onClick={(e) => handleDeleteSet(set.id, e)}
@@ -156,59 +166,49 @@ export default function LandingPage() {
           ))}
 
           {/* Decks at current level */}
-          {decks.map((deck) => {
-            const d = { id: deck.id, name: deck.name, cardCount: deck.cardCount };
-            return (
-              <li key={deck.id} className="deck-item deck-item--actions">
-                <div className="deck-item-info">
-                  <span className="deck-name">{deck.name}</span>
-                  <span className="deck-meta">{deck.cardCount} cards</span>
-                </div>
-                <div className="deck-item-buttons">
-                  <button
-                    className="deck-action-btn deck-action-btn--study"
-                    onClick={() => openDeck(d, "flashcard")}
-                    title="Study flashcards"
-                  >
-                    Study
-                  </button>
-                  <button
-                    className="deck-action-btn deck-action-btn--exam"
-                    onClick={() => openDeck(d, "exam")}
-                    title="Exam mode"
-                  >
-                    Exam
-                  </button>
-                  <button
-                    className="deck-delete-btn"
-                    onClick={(e) => handleDeleteDeck(deck.id, e)}
-                    aria-label={`Delete ${deck.name}`}
-                    title="Delete deck"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </li>
-            );
-          })}
+          {decks.map((deck) => (
+            <li key={deck.id} className="deck-item deck-item--actions">
+              <div className="deck-item-info">
+                <span className="deck-name">{deck.name}</span>
+                <span className="deck-meta">{deck.cardCount} cards</span>
+              </div>
+              <div className="deck-item-buttons">
+                <button
+                  className="deck-action-btn deck-action-btn--exam"
+                  onClick={() => openExam({ type: "deck", id: deck.id }, deck.name, deck.cardCount)}
+                  title="Exam mode"
+                >
+                  Exam
+                </button>
+                <button
+                  className="deck-delete-btn"
+                  onClick={(e) => handleDeleteDeck(deck.id, e)}
+                  aria-label={`Delete ${deck.name}`}
+                  title="Delete deck"
+                >
+                  ✕
+                </button>
+              </div>
+            </li>
+          ))}
         </ul>
       )}
 
-      {activeDeck && mode === "flashcard" && (
+      {activeSession?.mode === "flashcard" && activeSession.source.type === "deck" && (
         <FlashcardViewer
-          deckId={activeDeck.id}
-          deckName={activeDeck.name}
-          totalCards={activeDeck.cardCount}
-          onClose={() => setActiveDeck(null)}
+          deckId={activeSession.source.id}
+          deckName={activeSession.name}
+          totalCards={activeSession.totalCards}
+          onClose={() => setActiveSession(null)}
         />
       )}
 
-      {activeDeck && mode === "exam" && (
+      {activeSession?.mode === "exam" && (
         <ExamMode
-          deckId={activeDeck.id}
-          deckName={activeDeck.name}
-          totalCards={activeDeck.cardCount}
-          onClose={() => setActiveDeck(null)}
+          source={activeSession.source}
+          name={activeSession.name}
+          totalCards={activeSession.totalCards}
+          onClose={() => setActiveSession(null)}
         />
       )}
     </div>

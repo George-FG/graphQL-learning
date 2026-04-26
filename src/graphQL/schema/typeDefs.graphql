@@ -5,6 +5,7 @@ type Query {
   browse(parentSetId: ID): BrowseResult!
   deck(id: ID!, offset: Int, limit: Int): Deck
   quizQuestions(deckId: ID!, offset: Int, limit: Int): QuizPage!
+  quizQuestionsForSet(setId: ID!, offset: Int, limit: Int): QuizPage!
 }
 
 type Mutation {
@@ -34,6 +35,7 @@ type DeckSet {
   parentId: ID
   childSetCount: Int!
   deckCount: Int!
+  totalCardCount: Int!
 }
 
 type BrowseResult {

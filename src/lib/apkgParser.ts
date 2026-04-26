@@ -169,7 +169,8 @@ export function parseApkgFile(base64Content: string): ParsedDeck[] {
         }
       }
 
-      const deckPath = deckInfo.name.split("::").map((s) => s.trim());
+      // Anki ≤2.1.44 uses "::" as hierarchy separator; ≥2.1.45 uses "\x1f"
+      const deckPath = deckInfo.name.split(/\x1f|::/).map((s) => s.trim()).filter(Boolean);
       result.push({ deckPath, cards: uniqueCards });
     }
 

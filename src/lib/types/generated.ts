@@ -53,6 +53,7 @@ export type DeckSet = {
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
   parentId?: Maybe<Scalars['ID']['output']>;
+  totalCardCount: Scalars['Int']['output'];
 };
 
 export type Mutation = {
@@ -102,6 +103,7 @@ export type Query = {
   me?: Maybe<User>;
   myDecks: Array<Deck>;
   quizQuestions: QuizPage;
+  quizQuestionsForSet: QuizPage;
 };
 
 
@@ -126,6 +128,13 @@ export type QueryQuizQuestionsArgs = {
   deckId: Scalars['ID']['input'];
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryQuizQuestionsForSetArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
+  setId: Scalars['ID']['input'];
 };
 
 export type QuizOption = {
@@ -295,6 +304,7 @@ export type DeckSetResolvers<ContextType = any, ParentType extends ResolversPare
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   parentId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  totalCardCount?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
 };
 
 export type MutationResolvers<ContextType = any, ParentType extends ResolversParentTypes['Mutation'] = ResolversParentTypes['Mutation']> = {
@@ -314,6 +324,7 @@ export type QueryResolvers<ContextType = any, ParentType extends ResolversParent
   me?: Resolver<Maybe<ResolversTypes['User']>, ParentType, ContextType>;
   myDecks?: Resolver<Array<ResolversTypes['Deck']>, ParentType, ContextType>;
   quizQuestions?: Resolver<ResolversTypes['QuizPage'], ParentType, ContextType, RequireFields<QueryQuizQuestionsArgs, 'deckId'>>;
+  quizQuestionsForSet?: Resolver<ResolversTypes['QuizPage'], ParentType, ContextType, RequireFields<QueryQuizQuestionsForSetArgs, 'setId'>>;
 };
 
 export type QuizOptionResolvers<ContextType = any, ParentType extends ResolversParentTypes['QuizOption'] = ResolversParentTypes['QuizOption']> = {

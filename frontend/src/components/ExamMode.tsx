@@ -1,17 +1,20 @@
 import { useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useLazyQuery } from "@apollo/client/react";
-import { QUIZ_QUESTIONS_QUERY } from "../graphql/queries";
-import type { Query, QueryQuizQuestionsArgs, QuizQuestion } from "@generated/generated";
+import { QUIZ_QUESTIONS_QUERY, QUIZ_QUESTIONS_FOR_SET_QUERY } from "../graphql/queries";
+import type { Query, QueryQuizQuestionsArgs, QueryQuizQuestionsForSetArgs, QuizQuestion } from "@generated/generated";
 
 const BATCH_SIZE = 2;
 
 type QuizResponse = Pick<Query, "quizQuestions">;
+type QuizSetResponse = Pick<Query, "quizQuestionsForSet">;
 
 type AnswerState = "unanswered" | "correct" | "wrong";
 
+export type ExamSource = { type: "deck"; id: string } | { type: "set"; id: string };
+
 type Props = {
-  deckId: string;
-  deckName: string;
+  source: ExamSource;
+  name: string;
   totalCards: number;
   onClose: () => void;
 };
@@ -29,8 +32,10 @@ function formatOptionText(text: string): string {
   return out;
 }
 
-export default function ExamMode({ deckId, deckName, totalCards, onClose }: Props) {
-  const storageKey = `examProgress_${deckId}`;
+export default function ExamMode({ source, name, totalCards, onClose }: Props) {
+  const storageKey = source.type === "deck"
+    ? `examProgress_deck_${source.id}`
+    : `examProgress_set_${source.id}`;
 
   const savedIndex = useMemo(() => {
     try {
@@ -62,13 +67,19 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
 
   const fetchedOffsets = useRef(new Set<number>());
 
-  const [fetchQuestions, { data: fetchedData }] = useLazyQuery<
-    QuizResponse,
-    QueryQuizQuestionsArgs
-  >(QUIZ_QUESTIONS_QUERY, { fetchPolicy: "network-only" });
+  const [fetchDeckQuestions, { data: deckData }] = useLazyQuery<QuizResponse, QueryQuizQuestionsArgs>(
+    QUIZ_QUESTIONS_QUERY, { fetchPolicy: "network-only" }
+  );
+  const [fetchSetQuestions, { data: setData }] = useLazyQuery<QuizSetResponse, QueryQuizQuestionsForSetArgs>(
+    QUIZ_QUESTIONS_FOR_SET_QUERY, { fetchPolicy: "network-only" }
+  );
+
+  const fetchedData = source.type === "deck"
+    ? deckData?.quizQuestions
+    : setData?.quizQuestionsForSet;
 
   useEffect(() => {
-    const incoming = fetchedData?.quizQuestions?.questions ?? [];
+    const incoming = fetchedData?.questions ?? [];
     if (incoming.length === 0) return;
     startTransition(() => {
       setQuestions((prev) => {
@@ -83,7 +94,11 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
     if (fetchedOffsets.current.has(offset)) return;
     if (offset >= totalCards) return;
     fetchedOffsets.current.add(offset);
-    void fetchQuestions({ variables: { deckId, offset, limit: BATCH_SIZE } });
+    if (source.type === "deck") {
+      void fetchDeckQuestions({ variables: { deckId: source.id, offset, limit: BATCH_SIZE } });
+    } else {
+      void fetchSetQuestions({ variables: { setId: source.id, offset, limit: BATCH_SIZE } });
+    }
   };
 
   // Fetch first batch once resume decision is made
@@ -165,7 +180,7 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
           aria-modal="true"
           aria-labelledby="resume-title"
         >
-          <h2 id="resume-title">{deckName}</h2>
+          <h2 id="resume-title">{name}</h2>
           <p className="modal-subtitle">
             You left off at <strong>question {savedIndex + 1}</strong> of {totalCards}.
           </p>
@@ -209,12 +224,12 @@ export default function ExamMode({ deckId, deckName, totalCards, onClose }: Prop
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={`Exam: ${deckName}`}
+        aria-label={`Exam: ${name}`}
       >
         {/* Header */}
         <div className="exam-header">
           <div className="exam-title-row">
-            <h2>{deckName}</h2>
+            <h2>{name}</h2>
             <button className="flashcard-close" onClick={onClose} aria-label="Close">✕</button>
           </div>
           <div className="exam-progress-row">

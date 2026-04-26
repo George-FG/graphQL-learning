@@ -72,11 +72,11 @@ export default function UploadDeckModal({ onClose }: Props) {
         aria-modal="true"
         aria-labelledby="upload-modal-title"
       >
-        <h2 id="upload-modal-title">Import Anki Package</h2>
+        <h2 id="upload-modal-title">Upload</h2>
         <p className="modal-subtitle">
-          Export your deck from Anki as <strong>.apkg</strong> (File → Export →
-          "Anki Deck Package"). The full deck hierarchy is read automatically
-          from the file — no name needed.
+          In Anki, navigate to the deck you want to upload, click the{" "}
+          <strong>gear icon</strong>, then choose <strong>Export</strong> →{" "}
+          <strong>Export as .apkg</strong>.
         </p>
 
         <form className="auth-form" onSubmit={handleSubmit}>

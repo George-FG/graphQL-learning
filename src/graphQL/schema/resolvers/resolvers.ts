@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../../lib/prisma";
 import type { Resolvers } from "@generated/generated";
 import {
@@ -12,6 +13,138 @@ import { generateMCQSets, stripHtml, type MCQSet } from "../../../lib/llmDistrac
 import type { GraphQLContext } from "@generated/context";
 
 const REFRESH_COOKIE_NAME = "refreshToken";
+
+// ---------------------------------------------------------------------------
+// Shared quiz-building helpers
+// ---------------------------------------------------------------------------
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/** Deterministic shuffle seeded by card ID — same card always gives the same option order. */
+function seededShuffle<T>(arr: T[], seed: bigint): T[] {
+  const a = [...arr];
+  let s = Number(seed % BigInt(2 ** 31));
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) & 0x7fffffff;
+    return s / 0x7fffffff;
+  };
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+type CardForQuiz = {
+  id: bigint;
+  front: string;
+  back: string;
+  position: number;
+  distractors: string | null;
+};
+
+/** Build MCQ quiz questions for the given cards, using LLM (with caching) for
+ *  distractors and falling back to position-based pool if LLM is unavailable.
+ *  Caching is stored on the card row so the same card produces the same
+ *  question regardless of which deck or set it is accessed through. */
+async function buildQuizQuestions(
+  questionCards: CardForQuiz[],
+  distractorPool: CardForQuiz[],
+): Promise<{ cardId: string; front: string; options: { id: string; text: string }[]; correctOptionId: string }[]> {
+  function positionDistractors(card: { id: bigint; position: number }, count: number): string[] {
+    const nearby = distractorPool.filter(
+      (c) => Math.abs(c.position - card.position) <= 20 && c.id !== card.id
+    );
+    const far = distractorPool.filter((c) => !nearby.includes(c) && c.id !== card.id);
+    return [...shuffle(nearby), ...shuffle(far)].slice(0, count).map((c) => stripHtml(c.back));
+  }
+
+  const uncachedCards = questionCards.filter((c) => {
+    if (!c.distractors) return true;
+    try {
+      const parsed = JSON.parse(c.distractors) as unknown;
+      return (
+        typeof parsed !== "object" ||
+        parsed === null ||
+        !("question" in (parsed as object)) ||
+        !("correct" in (parsed as object)) ||
+        !Array.isArray((parsed as MCQSet).distractors) ||
+        (parsed as MCQSet).distractors.length < 3
+      );
+    } catch { return true; }
+  });
+
+  const llmCache: Record<string, MCQSet> = {};
+  if (uncachedCards.length > 0) {
+    const batchResult = await generateMCQSets(
+      uncachedCards.map((c) => ({ id: c.id.toString(), front: c.front, correctAnswer: c.back }))
+    );
+    if (batchResult.ok) {
+      Object.assign(llmCache, batchResult.results);
+      for (const card of uncachedCards) {
+        const mcq = llmCache[card.id.toString()];
+        if (mcq) {
+          prisma.card
+            .update({ where: { id: card.id }, data: { distractors: JSON.stringify(mcq) } })
+            .catch(() => {/* non-critical */});
+        }
+      }
+    }
+  }
+
+  return questionCards.map((card) => {
+    const idStr = card.id.toString();
+    let mcq: MCQSet | null = null;
+    if (llmCache[idStr]) {
+      mcq = llmCache[idStr];
+    } else if (card.distractors) {
+      try {
+        const cached = JSON.parse(card.distractors) as unknown;
+        if (
+          typeof cached === "object" && cached !== null &&
+          "question" in (cached as object) && "correct" in (cached as object) &&
+          Array.isArray((cached as MCQSet).distractors) &&
+          (cached as MCQSet).distractors.length >= 3
+        ) {
+          mcq = cached as MCQSet;
+        }
+      } catch {/* fall through */}
+    }
+
+    const correctText = mcq ? mcq.correct : stripHtml(card.back);
+    const distractorTexts = mcq ? mcq.distractors.slice(0, 3) : positionDistractors(card, 3);
+    const distractorOptions = distractorTexts.map((text, i) => ({ id: `${idStr}_d${i}`, text }));
+    const allOptions = seededShuffle([{ id: idStr, text: correctText }, ...distractorOptions], card.id);
+
+    return {
+      cardId: idStr,
+      front: mcq ? mcq.question : stripHtml(card.front),
+      options: allOptions,
+      correctOptionId: idStr,
+    };
+  });
+}
+
+/** Return all DeckSet IDs in the subtree rooted at rootSetId (inclusive). */
+async function getDescendantSetIds(rootSetId: bigint, userId: bigint): Promise<bigint[]> {
+  const rows = await prisma.$queryRaw<{ id: bigint }[]>`
+    WITH RECURSIVE set_tree AS (
+      SELECT id FROM deck_sets WHERE id = ${rootSetId} AND user_id = ${userId}
+      UNION ALL
+      SELECT ds.id FROM deck_sets ds
+      INNER JOIN set_tree st ON ds.parent_id = st.id
+    )
+    SELECT id FROM set_tree
+  `;
+  return rows.map((r) => r.id);
+}
 
 const refreshCookieOptions = {
   httpOnly: true,
@@ -118,6 +251,28 @@ export const resolvers: Resolvers<GraphQLContext> = {
         }),
       ]);
 
+      // Compute total card counts (all cards under each set, recursively) in one CTE query
+      let cardCountMap = new Map<string, number>();
+      if (sets.length > 0) {
+        const setIds = sets.map((s) => s.id);
+        const countRows = await prisma.$queryRaw<{ root_id: bigint; card_count: bigint }[]>`
+          WITH RECURSIVE set_tree AS (
+            SELECT id, id AS root_id FROM deck_sets WHERE id IN (${Prisma.join(setIds)})
+            UNION ALL
+            SELECT ds.id, st.root_id FROM deck_sets ds
+            INNER JOIN set_tree st ON ds.parent_id = st.id
+          )
+          SELECT st.root_id, COUNT(c.id) AS card_count
+          FROM set_tree st
+          LEFT JOIN decks d ON d.deck_set_id = st.id
+          LEFT JOIN cards c ON c.deck_id = d.id
+          GROUP BY st.root_id
+        `;
+        for (const row of countRows) {
+          cardCountMap.set(row.root_id.toString(), Number(row.card_count));
+        }
+      }
+
       return {
         sets: sets.map((s) => ({
           id: s.id.toString(),
@@ -126,6 +281,7 @@ export const resolvers: Resolvers<GraphQLContext> = {
           parentId: s.parentId?.toString() ?? undefined,
           childSetCount: s._count.children,
           deckCount: s._count.decks,
+          totalCardCount: cardCountMap.get(s.id.toString()) ?? 0,
         })),
         decks: decks.map((d) => ({
           id: d.id.toString(),
@@ -228,8 +384,6 @@ export const resolvers: Resolvers<GraphQLContext> = {
         return { questions: [], totalCards };
       }
 
-      // Fallback pool: position-based distractors (used when LLM is unavailable
-      // or for cards that haven't been cached yet during the LLM call)
       const distractorPool = await prisma.card.findMany({
         where: {
           deckId: BigInt(args.deckId),
@@ -239,145 +393,49 @@ export const resolvers: Resolvers<GraphQLContext> = {
         take: 200,
       });
 
-      function shuffle<T>(arr: T[]): T[] {
-        const a = [...arr];
-        for (let i = a.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [a[i], a[j]] = [a[j], a[i]];
-        }
-        return a;
+      const questions = await buildQuizQuestions(questionCards, distractorPool);
+      return { questions, totalCards };
+    },
+
+    quizQuestionsForSet: async (_parent, args, context) => {
+      if (!context.authUser) {
+        throw new Error("Not authenticated");
       }
 
-      /** Deterministic shuffle seeded by card ID — same card always gives the same option order. */
-      function seededShuffle<T>(arr: T[], seed: bigint): T[] {
-        const a = [...arr];
-        // Simple LCG using card id as seed
-        let s = Number(seed % BigInt(2 ** 31));
-        const rand = () => {
-          s = (s * 1664525 + 1013904223) & 0x7fffffff;
-          return s / 0x7fffffff;
-        };
-        for (let i = a.length - 1; i > 0; i--) {
-          const j = Math.floor(rand() * (i + 1));
-          [a[i], a[j]] = [a[j], a[i]];
-        }
-        return a;
-      }
+      const userId = BigInt(context.authUser.userId);
+      const setId = BigInt(args.setId);
 
-      function positionDistractors(
-        card: { id: bigint; position: number },
-        count: number
-      ): string[] {
-        const nearby = distractorPool.filter(
-          (c) => Math.abs(c.position - card.position) <= 20 && c.id !== card.id
-        );
-        const far = distractorPool.filter(
-          (c) => !nearby.includes(c) && c.id !== card.id
-        );
-        return [...shuffle(nearby), ...shuffle(far)]
-          .slice(0, count)
-          .map((c) => stripHtml(c.back));
-      }
+      const allSetIds = await getDescendantSetIds(setId, userId);
+      if (allSetIds.length === 0) throw new Error("Set not found");
 
-      // Determine which cards need LLM generation (cache miss)
-      const uncachedCards = questionCards.filter((c) => {
-        if (!c.distractors) return true;
-        try {
-          const parsed = JSON.parse(c.distractors) as unknown;
-          return (
-            typeof parsed !== "object" ||
-            parsed === null ||
-            !("question" in (parsed as object)) ||
-            !("correct" in (parsed as object)) ||
-            !Array.isArray((parsed as MCQSet).distractors) ||
-            (parsed as MCQSet).distractors.length < 3
-          );
-        } catch { return true; }
+      const deckRows = await prisma.deck.findMany({
+        where: { deckSetId: { in: allSetIds }, userId },
+        select: { id: true },
+      });
+      const deckIds = deckRows.map((d) => d.id);
+      if (deckIds.length === 0) return { questions: [], totalCards: 0 };
+
+      const BATCH = Math.min(2, Math.max(1, args.limit ?? 2));
+      const offset = Math.max(0, args.offset ?? 0);
+
+      const totalCards = await prisma.card.count({ where: { deckId: { in: deckIds } } });
+
+      const questionCards = await prisma.card.findMany({
+        where: { deckId: { in: deckIds } },
+        orderBy: [{ deckId: "asc" }, { position: "asc" }],
+        skip: offset,
+        take: BATCH,
       });
 
-      // One LLM request per uncached card (sequential)
-      const llmCache: Record<string, MCQSet> = {};
-      if (uncachedCards.length > 0) {
-        const batchResult = await generateMCQSets(
-          uncachedCards.map((c) => ({
-            id: c.id.toString(),
-            front: c.front,
-            correctAnswer: c.back,
-          }))
-        );
+      if (questionCards.length === 0) return { questions: [], totalCards };
 
-        if (batchResult.ok) {
-          Object.assign(llmCache, batchResult.results);
-
-          // Persist new cache entries (fire-and-forget)
-          for (const card of uncachedCards) {
-            const mcq = llmCache[card.id.toString()];
-            if (mcq) {
-              prisma.card
-                .update({
-                  where: { id: card.id },
-                  data: { distractors: JSON.stringify(mcq) },
-                })
-                .catch(() => {/* non-critical */});
-            }
-          }
-        }
-      }
-
-      // Build final questions using LLM results where available, fallback otherwise
-      const questions = questionCards.map((card) => {
-        const idStr = card.id.toString();
-
-        // Resolve MCQSet: LLM cache > DB cache > position fallback
-        let mcq: MCQSet | null = null;
-
-        if (llmCache[idStr]) {
-          mcq = llmCache[idStr];
-        } else if (card.distractors) {
-          try {
-            const cached = JSON.parse(card.distractors) as unknown;
-            if (
-              typeof cached === "object" &&
-              cached !== null &&
-              "question" in (cached as object) &&
-              "correct" in (cached as object) &&
-              Array.isArray((cached as MCQSet).distractors) &&
-              (cached as MCQSet).distractors.length >= 3
-            ) {
-              mcq = cached as MCQSet;
-            }
-          } catch {/* fall through */}
-        }
-
-        let correctText: string;
-        let distractorTexts: string[];
-
-        if (mcq) {
-          correctText = mcq.correct;
-          distractorTexts = mcq.distractors.slice(0, 3);
-        } else {
-          correctText = stripHtml(card.back);
-          distractorTexts = positionDistractors(card, 3);
-        }
-
-        const distractorOptions = distractorTexts.map((text, i) => ({
-          id: `${idStr}_d${i}`,
-          text,
-        }));
-
-        const allOptions = seededShuffle([
-          { id: idStr, text: correctText },
-          ...distractorOptions,
-        ], card.id);
-
-        return {
-          cardId: idStr,
-          front: mcq ? mcq.question : stripHtml(card.front),
-          options: allOptions,
-          correctOptionId: idStr,
-        };
+      const distractorPool = await prisma.card.findMany({
+        where: { deckId: { in: deckIds }, id: { notIn: questionCards.map((c) => c.id) } },
+        orderBy: [{ deckId: "asc" }, { position: "asc" }],
+        take: 200,
       });
 
+      const questions = await buildQuizQuestions(questionCards, distractorPool);
       return { questions, totalCards };
     },
   },
