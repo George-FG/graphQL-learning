@@ -16,6 +16,7 @@ type Props = {
   source: ExamSource;
   name: string;
   totalCards: number;
+  seed?: number;
   onClose: () => void;
 };
 
@@ -32,12 +33,13 @@ function formatOptionText(text: string): string {
   return out;
 }
 
-export default function ExamMode({ source, name, totalCards, onClose }: Props) {
+export default function ExamMode({ source, name, totalCards, seed, onClose }: Props) {
   const storageKey = source.type === "deck"
     ? `examProgress_deck_${source.id}`
     : `examProgress_set_${source.id}`;
 
   const savedIndex = useMemo(() => {
+    if (seed != null) return 0; // random mode: always start fresh
     try {
       const raw = localStorage.getItem(storageKey);
       if (!raw) return 0;
@@ -95,9 +97,9 @@ export default function ExamMode({ source, name, totalCards, onClose }: Props) {
     if (offset >= totalCards) return;
     fetchedOffsets.current.add(offset);
     if (source.type === "deck") {
-      void fetchDeckQuestions({ variables: { deckId: source.id, offset, limit: BATCH_SIZE } });
+      void fetchDeckQuestions({ variables: { deckId: source.id, offset, limit: BATCH_SIZE, seed } });
     } else {
-      void fetchSetQuestions({ variables: { setId: source.id, offset, limit: BATCH_SIZE } });
+      void fetchSetQuestions({ variables: { setId: source.id, offset, limit: BATCH_SIZE, seed } });
     }
   };
 

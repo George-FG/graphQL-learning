@@ -4,8 +4,8 @@ type Query {
   myDecks: [Deck!]!
   browse(parentSetId: ID): BrowseResult!
   deck(id: ID!, offset: Int, limit: Int): Deck
-  quizQuestions(deckId: ID!, offset: Int, limit: Int): QuizPage!
-  quizQuestionsForSet(setId: ID!, offset: Int, limit: Int): QuizPage!
+  quizQuestions(deckId: ID!, offset: Int, limit: Int, seed: Int): QuizPage!
+  quizQuestionsForSet(setId: ID!, offset: Int, limit: Int, seed: Int): QuizPage!
 }
 
 type Mutation {

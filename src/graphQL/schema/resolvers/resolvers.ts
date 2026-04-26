@@ -42,6 +42,21 @@ function seededShuffle<T>(arr: T[], seed: bigint): T[] {
   return a;
 }
 
+/** Deterministic shuffle of an array using a numeric seed (for random exam order). */
+function shuffleWithSeed<T>(arr: T[], seed: number): T[] {
+  const a = [...arr];
+  let s = Math.abs(seed) % (2 ** 31);
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) & 0x7fffffff;
+    return s / 0x7fffffff;
+  };
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 type CardForQuiz = {
   id: bigint;
   front: string;
@@ -373,12 +388,27 @@ export const resolvers: Resolvers<GraphQLContext> = {
 
       const totalCards = deckMeta._count.cards;
 
-      const questionCards = await prisma.card.findMany({
-        where: { deckId: BigInt(args.deckId) },
-        orderBy: { position: "asc" },
-        skip: offset,
-        take: BATCH,
-      });
+      let questionCards: CardForQuiz[];
+      if (args.seed != null) {
+        // Random mode: fetch all IDs, shuffle deterministically, then page
+        const allIds = await prisma.card.findMany({
+          where: { deckId: BigInt(args.deckId) },
+          select: { id: true },
+          orderBy: { id: "asc" },
+        });
+        const pageIds = shuffleWithSeed(allIds.map((r) => r.id), args.seed).slice(offset, offset + BATCH);
+        if (pageIds.length === 0) return { questions: [], totalCards };
+        const fetched = await prisma.card.findMany({ where: { id: { in: pageIds } } });
+        const cardMap = new Map(fetched.map((c) => [c.id.toString(), c]));
+        questionCards = pageIds.map((id) => cardMap.get(id.toString())!).filter(Boolean);
+      } else {
+        questionCards = await prisma.card.findMany({
+          where: { deckId: BigInt(args.deckId) },
+          orderBy: { position: "asc" },
+          skip: offset,
+          take: BATCH,
+        });
+      }
 
       if (questionCards.length === 0) {
         return { questions: [], totalCards };
@@ -420,12 +450,26 @@ export const resolvers: Resolvers<GraphQLContext> = {
 
       const totalCards = await prisma.card.count({ where: { deckId: { in: deckIds } } });
 
-      const questionCards = await prisma.card.findMany({
-        where: { deckId: { in: deckIds } },
-        orderBy: [{ deckId: "asc" }, { position: "asc" }],
-        skip: offset,
-        take: BATCH,
-      });
+      let questionCards: CardForQuiz[];
+      if (args.seed != null) {
+        const allIds = await prisma.card.findMany({
+          where: { deckId: { in: deckIds } },
+          select: { id: true },
+          orderBy: { id: "asc" },
+        });
+        const pageIds = shuffleWithSeed(allIds.map((r) => r.id), args.seed).slice(offset, offset + BATCH);
+        if (pageIds.length === 0) return { questions: [], totalCards };
+        const fetched = await prisma.card.findMany({ where: { id: { in: pageIds } } });
+        const cardMap = new Map(fetched.map((c) => [c.id.toString(), c]));
+        questionCards = pageIds.map((id) => cardMap.get(id.toString())!).filter(Boolean);
+      } else {
+        questionCards = await prisma.card.findMany({
+          where: { deckId: { in: deckIds } },
+          orderBy: [{ deckId: "asc" }, { position: "asc" }],
+          skip: offset,
+          take: BATCH,
+        });
+      }
 
       if (questionCards.length === 0) return { questions: [], totalCards };
 

@@ -59,8 +59,8 @@ export const DECK_QUERY = gql`
 `;
 
 export const QUIZ_QUESTIONS_QUERY = gql`
-  query QuizQuestions($deckId: ID!, $offset: Int, $limit: Int) {
-    quizQuestions(deckId: $deckId, offset: $offset, limit: $limit) {
+  query QuizQuestions($deckId: ID!, $offset: Int, $limit: Int, $seed: Int) {
+    quizQuestions(deckId: $deckId, offset: $offset, limit: $limit, seed: $seed) {
       totalCards
       questions {
         cardId
@@ -76,8 +76,8 @@ export const QUIZ_QUESTIONS_QUERY = gql`
 `;
 
 export const QUIZ_QUESTIONS_FOR_SET_QUERY = gql`
-  query QuizQuestionsForSet($setId: ID!, $offset: Int, $limit: Int) {
-    quizQuestionsForSet(setId: $setId, offset: $offset, limit: $limit) {
+  query QuizQuestionsForSet($setId: ID!, $offset: Int, $limit: Int, $seed: Int) {
+    quizQuestionsForSet(setId: $setId, offset: $offset, limit: $limit, seed: $seed) {
       totalCards
       questions {
         cardId

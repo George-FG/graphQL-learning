@@ -444,6 +444,15 @@ a:hover {
   background: #dcfce7;
 }
 
+.deck-action-btn--random {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.deck-action-btn--random:hover {
+  background: #ffedd5;
+}
+
 /* Keep old deck-item-btn for any legacy use */
 .deck-item-btn {
   flex: 1;

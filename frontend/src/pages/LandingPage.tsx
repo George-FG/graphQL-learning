@@ -13,7 +13,7 @@ type DeleteSetResponse = Pick<Mutation, "deleteDeckSet">;
 
 type ExamSource = { type: "deck"; id: string } | { type: "set"; id: string };
 type ActiveSession =
-  | { source: ExamSource; name: string; totalCards: number; mode: "exam" }
+  | { source: ExamSource; name: string; totalCards: number; mode: "exam"; seed?: number }
   | { source: { type: "deck"; id: string }; name: string; totalCards: number; mode: "flashcard" };
 type BreadcrumbEntry = { id: string | null; name: string };
 
@@ -75,6 +75,11 @@ export default function LandingPage() {
 
   const openExam = (source: ExamSource, name: string, totalCards: number) => {
     setActiveSession({ source, name, totalCards, mode: "exam" });
+  };
+
+  const openRandom = (source: ExamSource, name: string, totalCards: number) => {
+    const seed = Math.floor(Math.random() * 2147483647);
+    setActiveSession({ source, name, totalCards, mode: "exam", seed });
   };
 
   const sets = browseData?.browse.sets ?? [];
@@ -145,13 +150,22 @@ export default function LandingPage() {
               </div>
               <div className="deck-item-buttons">
                 {set.totalCardCount > 0 && (
-                  <button
-                    className="deck-action-btn deck-action-btn--exam"
-                    onClick={(e) => { e.stopPropagation(); openExam({ type: "set", id: set.id }, set.name, set.totalCardCount); }}
-                    title="Exam mode (all cards in this set)"
-                  >
-                    Exam
-                  </button>
+                  <>
+                    <button
+                      className="deck-action-btn deck-action-btn--exam"
+                      onClick={(e) => { e.stopPropagation(); openExam({ type: "set", id: set.id }, set.name, set.totalCardCount); }}
+                      title="Exam mode (all cards in this set)"
+                    >
+                      Exam
+                    </button>
+                    <button
+                      className="deck-action-btn deck-action-btn--random"
+                      onClick={(e) => { e.stopPropagation(); openRandom({ type: "set", id: set.id }, set.name, set.totalCardCount); }}
+                      title="Random exam (shuffled order)"
+                    >
+                      Random
+                    </button>
+                  </>
                 )}
                 <button
                   className="deck-delete-btn"
@@ -181,6 +195,13 @@ export default function LandingPage() {
                   Exam
                 </button>
                 <button
+                  className="deck-action-btn deck-action-btn--random"
+                  onClick={() => openRandom({ type: "deck", id: deck.id }, deck.name, deck.cardCount)}
+                  title="Random exam (shuffled order)"
+                >
+                  Random
+                </button>
+                <button
                   className="deck-delete-btn"
                   onClick={(e) => handleDeleteDeck(deck.id, e)}
                   aria-label={`Delete ${deck.name}`}
@@ -208,6 +229,7 @@ export default function LandingPage() {
           source={activeSession.source}
           name={activeSession.name}
           totalCards={activeSession.totalCards}
+          seed={activeSession.seed}
           onClose={() => setActiveSession(null)}
         />
       )}

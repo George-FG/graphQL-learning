@@ -128,12 +128,14 @@ export type QueryQuizQuestionsArgs = {
   deckId: Scalars['ID']['input'];
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
+  seed?: InputMaybe<Scalars['Int']['input']>;
 };
 
 
 export type QueryQuizQuestionsForSetArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
   offset?: InputMaybe<Scalars['Int']['input']>;
+  seed?: InputMaybe<Scalars['Int']['input']>;
   setId: Scalars['ID']['input'];
 };
 
