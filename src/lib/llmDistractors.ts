@@ -43,6 +43,7 @@ Critical rules:
 - Wrong answers must match the type and format of the correct answer (same length, same structure — phrase for phrase, list for list).
 - Wrong answers should be close misconceptions, swapped mechanisms, wrong locations, or sibling concepts.
 - Do not include explanations or extra text in any field.
+- Correct answerer cannot be worked out purely by elimination; all options should be similarly plausible.
 - Return only valid JSON: { "mcqs": [ ...one object per card, in order... ] }
 
 The examples below illustrate the required JSON format only. Their content must not appear in your output.

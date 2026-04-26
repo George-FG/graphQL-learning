@@ -1,10 +1,10 @@
 import { useRef, useState } from "react";
 import { useMutation } from "@apollo/client/react";
-import { UPLOAD_DECK_MUTATION } from "../graphql/mutations";
-import { MY_DECKS_QUERY } from "../graphql/queries";
-import type { Mutation, MutationUploadDeckArgs } from "@generated/generated";
+import { UPLOAD_APKG_MUTATION } from "../graphql/mutations";
+import { BROWSE_QUERY } from "../graphql/queries";
+import type { Mutation, MutationUploadApkgArgs } from "@generated/generated";
 
-type UploadDeckResponse = Pick<Mutation, "uploadDeck">;
+type UploadApkgResponse = Pick<Mutation, "uploadApkg">;
 
 type Props = {
   onClose: () => void;
@@ -12,17 +12,16 @@ type Props = {
 
 export default function UploadDeckModal({ onClose }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [deckName, setDeckName] = useState("");
   const [fileName, setFileName] = useState("");
   const [fileContent, setFileContent] = useState("");
   const [localError, setLocalError] = useState("");
   const [shuffleDeck, setShuffleDeck] = useState(false);
 
-  const [uploadDeck, { loading, error }] = useMutation<
-    UploadDeckResponse,
-    MutationUploadDeckArgs
-  >(UPLOAD_DECK_MUTATION, {
-    refetchQueries: [{ query: MY_DECKS_QUERY }],
+  const [uploadApkg, { loading, error }] = useMutation<
+    UploadApkgResponse,
+    MutationUploadApkgArgs
+  >(UPLOAD_APKG_MUTATION, {
+    refetchQueries: [{ query: BROWSE_QUERY, variables: { parentSetId: null } }],
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,16 +31,16 @@ export default function UploadDeckModal({ onClose }: Props) {
     setLocalError("");
     setFileName(file.name);
 
-    // Auto-fill deck name from filename (strip extension)
-    if (!deckName) {
-      setDeckName(file.name.replace(/\.[^.]+$/, ""));
-    }
-
+    // Read as ArrayBuffer and base64-encode for transport
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setFileContent(ev.target?.result as string);
+      const arrayBuffer = ev.target?.result as ArrayBuffer;
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = "";
+      uint8Array.forEach((byte) => (binary += String.fromCharCode(byte)));
+      setFileContent(btoa(binary));
     };
-    reader.readAsText(file, "utf-8");
+    reader.readAsArrayBuffer(file);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,17 +48,18 @@ export default function UploadDeckModal({ onClose }: Props) {
     setLocalError("");
 
     if (!fileContent) {
-      setLocalError("Please select a .txt file.");
+      setLocalError("Please select an .apkg file.");
       return;
     }
 
-    const trimmedName = deckName.trim();
-    if (!trimmedName) {
-      setLocalError("Please enter a deck name.");
+    const result = await uploadApkg({
+      variables: { fileContent, shuffle: shuffleDeck },
+    });
+    const count = result.data?.uploadApkg ?? 0;
+    if (count === 0) {
+      setLocalError("No decks were found in the file.");
       return;
     }
-
-    await uploadDeck({ variables: { name: trimmedName, fileContent, shuffle: shuffleDeck } });
     onClose();
   };
 
@@ -72,23 +72,14 @@ export default function UploadDeckModal({ onClose }: Props) {
         aria-modal="true"
         aria-labelledby="upload-modal-title"
       >
-        <h2 id="upload-modal-title">Upload Anki Deck</h2>
+        <h2 id="upload-modal-title">Import Anki Package</h2>
         <p className="modal-subtitle">
-          Upload a tab-separated .txt export from Anki.
+          Export your deck from Anki as <strong>.apkg</strong> (File → Export →
+          "Anki Deck Package"). The full deck hierarchy is read automatically
+          from the file — no name needed.
         </p>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label className="field">
-            <span>Deck Name</span>
-            <input
-              type="text"
-              value={deckName}
-              onChange={(e) => setDeckName(e.target.value)}
-              placeholder="e.g. Respiratory Physiology"
-              required
-            />
-          </label>
-
           <label className="field field--checkbox">
             <input
               type="checkbox"
@@ -102,7 +93,7 @@ export default function UploadDeckModal({ onClose }: Props) {
             <input
               ref={inputRef}
               type="file"
-              accept=".txt"
+              accept=".apkg"
               id="anki-file"
               onChange={handleFileChange}
               style={{ display: "none" }}
@@ -112,7 +103,7 @@ export default function UploadDeckModal({ onClose }: Props) {
               className="secondary-button"
               onClick={() => inputRef.current?.click()}
             >
-              {fileName ? "Change File" : "Choose .txt File"}
+              {fileName ? "Change File" : "Choose .apkg File"}
             </button>
             {fileName && <span className="file-name">{fileName}</span>}
           </div>
@@ -134,7 +125,7 @@ export default function UploadDeckModal({ onClose }: Props) {
               className="primary-button"
               disabled={loading || !fileContent}
             >
-              {loading ? "Uploading..." : "Upload"}
+              {loading ? "Importing..." : "Import"}
             </button>
           </div>
         </form>
@@ -142,3 +133,4 @@ export default function UploadDeckModal({ onClose }: Props) {
     </div>
   );
 }
+

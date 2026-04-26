@@ -7,7 +7,7 @@ import {
   hashRefreshToken,
   signAccessToken,
 } from "../../../lib/auth";
-import { parseAnkiFile } from "../../../lib/ankiParser";
+import { parseApkgFile } from "../../../lib/apkgParser";
 import { generateMCQSets, stripHtml, type MCQSet } from "../../../lib/llmDistractors";
 import type { GraphQLContext } from "@generated/context";
 
@@ -95,6 +95,46 @@ export const resolvers: Resolvers<GraphQLContext> = {
       }
 
       return toGraphQLUser(user);
+    },
+
+    browse: async (_parent, args, context) => {
+      if (!context.authUser) {
+        throw new Error("Not authenticated");
+      }
+
+      const userId = BigInt(context.authUser.userId);
+      const parentSetId = args.parentSetId ? BigInt(args.parentSetId) : null;
+
+      const [sets, decks] = await Promise.all([
+        prisma.deckSet.findMany({
+          where: { userId, parentId: parentSetId },
+          orderBy: { name: "asc" },
+          include: { _count: { select: { children: true, decks: true } } },
+        }),
+        prisma.deck.findMany({
+          where: { userId, deckSetId: parentSetId },
+          orderBy: { createdAt: "desc" },
+          include: { _count: { select: { cards: true } } },
+        }),
+      ]);
+
+      return {
+        sets: sets.map((s) => ({
+          id: s.id.toString(),
+          name: s.name,
+          createdAt: s.createdAt.toISOString(),
+          parentId: s.parentId?.toString() ?? undefined,
+          childSetCount: s._count.children,
+          deckCount: s._count.decks,
+        })),
+        decks: decks.map((d) => ({
+          id: d.id.toString(),
+          name: d.name,
+          createdAt: d.createdAt.toISOString(),
+          cardCount: d._count.cards,
+          cards: [],
+        })),
+      };
     },
 
     myDecks: async (_parent, _args, context) => {
@@ -486,47 +526,67 @@ export const resolvers: Resolvers<GraphQLContext> = {
       return true;
     },
 
-    uploadDeck: async (_parent, args, context) => {
+    uploadApkg: async (_parent, args, context) => {
       if (!context.authUser) {
         throw new Error("Not authenticated");
       }
 
-      let cards = parseAnkiFile(args.fileContent);
-      if (cards.length === 0) {
-        throw new Error("No valid cards found in the uploaded file");
+      const parsedDecks = parseApkgFile(args.fileContent);
+      if (parsedDecks.length === 0) {
+        throw new Error("No valid decks found in the .apkg file");
       }
 
-      if (args.shuffle) {
-        for (let i = cards.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [cards[i], cards[j]] = [cards[j], cards[i]];
+      const userId = BigInt(context.authUser.userId);
+      let decksCreated = 0;
+
+      for (const parsed of parsedDecks) {
+        let cards = parsed.cards;
+
+        if (args.shuffle) {
+          for (let i = cards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [cards[i], cards[j]] = [cards[j], cards[i]];
+          }
         }
+
+        // deckPath: e.g. ["Medicine", "Year 1", "Week 02_ COPD"]
+        // All segments except last are sets; last is the deck name
+        const setPath = parsed.deckPath.slice(0, -1);
+        const deckName = parsed.deckPath[parsed.deckPath.length - 1];
+
+        // Find or create each set level in sequence
+        let currentParentId: bigint | null = null;
+        for (const setName of setPath) {
+          let set: { id: bigint } | null = await prisma.deckSet.findFirst({
+            where: { userId, parentId: currentParentId, name: setName },
+          });
+          if (!set) {
+            set = await prisma.deckSet.create({
+              data: { userId, parentId: currentParentId, name: setName },
+            });
+          }
+          currentParentId = set.id;
+        }
+
+        await prisma.deck.create({
+          data: {
+            userId,
+            name: deckName,
+            deckSetId: currentParentId,
+            cards: {
+              create: cards.map((card, index) => ({
+                front: card.front,
+                back: card.back,
+                position: index,
+              })),
+            },
+          },
+        });
+
+        decksCreated++;
       }
 
-      const deck = await prisma.deck.create({
-        data: {
-          userId: BigInt(context.authUser.userId),
-          name: args.name,
-          cards: {
-            create: cards.map((card, index) => ({
-              front: card.front,
-              back: card.back,
-              position: index,
-            })),
-          },
-        },
-        include: {
-          _count: { select: { cards: true } },
-        },
-      });
-
-      return {
-        id: deck.id.toString(),
-        name: deck.name,
-        createdAt: deck.createdAt.toISOString(),
-        cardCount: deck._count.cards,
-        cards: [],
-      };
+      return decksCreated;
     },
 
     deleteDeck: async (_parent, args, context) => {
@@ -553,6 +613,27 @@ export const resolvers: Resolvers<GraphQLContext> = {
       });
 
       await prisma.deck.delete({ where: { id: deck.id } });
+      return true;
+    },
+
+    deleteDeckSet: async (_parent, args, context) => {
+      if (!context.authUser) {
+        throw new Error("Not authenticated");
+      }
+
+      const set = await prisma.deckSet.findFirst({
+        where: {
+          id: BigInt(args.id),
+          userId: BigInt(context.authUser.userId),
+        },
+      });
+
+      if (!set) {
+        throw new Error("Set not found");
+      }
+
+      // Cascade in DB handles all children sets and decks
+      await prisma.deckSet.delete({ where: { id: set.id } });
       return true;
     },
   },

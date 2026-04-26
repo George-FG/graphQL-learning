@@ -1,61 +1,85 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
-import { useApolloClient } from "@apollo/client/react";
 import { useAuthBootstrap } from "../context/AuthBootstrap";
-import { DELETE_DECK_MUTATION } from "../graphql/mutations";
-import { MY_DECKS_QUERY } from "../graphql/queries";
+import { DELETE_DECK_MUTATION, DELETE_SET_MUTATION } from "../graphql/mutations";
+import { BROWSE_QUERY } from "../graphql/queries";
 import FlashcardViewer from "../components/FlashcardViewer";
 import ExamMode from "../components/ExamMode";
-import type { Mutation, MutationDeleteDeckArgs, Query } from "@generated/generated";
+import type { Mutation, MutationDeleteDeckArgs, MutationDeleteDeckSetArgs, Query } from "@generated/generated";
 
-type MyDecksResponse = Pick<Query, "myDecks">;
+type BrowseResponse = Pick<Query, "browse">;
 type DeleteDeckResponse = Pick<Mutation, "deleteDeck">;
+type DeleteSetResponse = Pick<Mutation, "deleteDeckSet">;
 
 type ActiveDeck = { id: string; name: string; cardCount: number };
 type Mode = "flashcard" | "exam";
+type BreadcrumbEntry = { id: string | null; name: string };
 
 export default function LandingPage() {
   const { isLoggedIn } = useAuthBootstrap();
   const [activeDeck, setActiveDeck] = useState<ActiveDeck | null>(null);
   const [mode, setMode] = useState<Mode>("flashcard");
+  const [currentSetId, setCurrentSetId] = useState<string | null>(null);
+  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbEntry[]>([
+    { id: null, name: "Home" },
+  ]);
 
-  const { data: decksData, loading: decksLoading } = useQuery<MyDecksResponse>(
-    MY_DECKS_QUERY,
-    { skip: !isLoggedIn, fetchPolicy: "cache-and-network" }
-  );
-
-  const apollo = useApolloClient();
-
-  const [deleteDeck] = useMutation<DeleteDeckResponse, MutationDeleteDeckArgs>(
-    DELETE_DECK_MUTATION,
+  const { data: browseData, loading: browseLoading } = useQuery<BrowseResponse>(
+    BROWSE_QUERY,
     {
-      refetchQueries: [{ query: MY_DECKS_QUERY }],
-      update(cache, _result, { variables }) {
-        const deckId = variables?.id;
-        if (!deckId) return;
-        // Evict normalised Deck object (removes it from all queries that reference it)
-        cache.evict({ id: cache.identify({ __typename: "Deck", id: deckId }) });
-        // Evict paginated deck card queries for this deck
-        cache.evict({ id: "ROOT_QUERY", fieldName: "deck" });
-        // Evict all cached quiz question batches (loaded on-demand, safe to purge)
-        cache.evict({ id: "ROOT_QUERY", fieldName: "quizQuestions" });
-        cache.gc();
-      },
+      variables: { parentSetId: currentSetId },
+      skip: !isLoggedIn,
+      fetchPolicy: "cache-and-network",
     }
   );
+
+  const [deleteDeck] = useMutation<DeleteDeckResponse, MutationDeleteDeckArgs>(
+    DELETE_DECK_MUTATION
+  );
+
+  const [deleteSet] = useMutation<DeleteSetResponse, MutationDeleteDeckSetArgs>(
+    DELETE_SET_MUTATION
+  );
+
+  const enterSet = (set: { id: string; name: string }) => {
+    setCurrentSetId(set.id);
+    setBreadcrumb((prev) => [...prev, { id: set.id, name: set.name }]);
+    setActiveDeck(null);
+  };
+
+  const navigateToBreadcrumb = (index: number) => {
+    const next = breadcrumb.slice(0, index + 1);
+    setBreadcrumb(next);
+    setCurrentSetId(next[next.length - 1].id);
+    setActiveDeck(null);
+  };
+
+  const handleDeleteDeck = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this deck?")) return;
+    await deleteDeck({
+      variables: { id },
+      refetchQueries: [{ query: BROWSE_QUERY, variables: { parentSetId: currentSetId } }],
+    });
+  };
+
+  const handleDeleteSet = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Delete this set and everything inside it?")) return;
+    await deleteSet({
+      variables: { id },
+      refetchQueries: [{ query: BROWSE_QUERY, variables: { parentSetId: currentSetId } }],
+    });
+  };
 
   const openDeck = (deck: ActiveDeck, m: Mode) => {
     setMode(m);
     setActiveDeck(deck);
   };
 
-  const handleDeleteDeck = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Delete this deck?")) return;
-    await deleteDeck({ variables: { id } });
-  };
-
-  const decks = decksData?.myDecks ?? [];
+  const sets = browseData?.browse.sets ?? [];
+  const decks = browseData?.browse.decks ?? [];
+  const isEmpty = sets.length === 0 && decks.length === 0;
 
   if (!isLoggedIn) {
     return (
@@ -69,17 +93,69 @@ export default function LandingPage() {
   return (
     <div className="decks-page">
       <div className="decks-header">
-        <h2>Your Decks</h2>
+        {/* Breadcrumb navigation */}
+        <nav className="breadcrumb" aria-label="Set navigation">
+          {breadcrumb.map((entry, i) => (
+            <span key={i} className="breadcrumb-item">
+              {i < breadcrumb.length - 1 ? (
+                <>
+                  <button
+                    className="breadcrumb-link"
+                    onClick={() => navigateToBreadcrumb(i)}
+                  >
+                    {entry.name}
+                  </button>
+                  <span className="breadcrumb-sep"> › </span>
+                </>
+              ) : (
+                <span className="breadcrumb-current">{entry.name}</span>
+              )}
+            </span>
+          ))}
+        </nav>
       </div>
 
-      {decksLoading && decks.length === 0 ? (
-        <p className="decks-empty">Loading decks…</p>
-      ) : decks.length === 0 ? (
+      {browseLoading && isEmpty ? (
+        <p className="decks-empty">Loading…</p>
+      ) : isEmpty ? (
         <p className="decks-empty">
-          No decks yet. Use &ldquo;Upload Deck&rdquo; in the header to add one.
+          {currentSetId
+            ? "This set is empty."
+            : "No sets yet. Use \"Upload Deck\" in the header to add one."}
         </p>
       ) : (
         <ul className="deck-list">
+          {/* Child sets */}
+          {sets.map((set) => (
+            <li
+              key={set.id}
+              className="deck-item deck-item--actions deck-item--set"
+              onClick={() => enterSet(set)}
+              style={{ cursor: "pointer" }}
+            >
+              <div className="deck-item-info">
+                <span className="deck-name">📁 {set.name}</span>
+                <span className="deck-meta">
+                  {set.childSetCount > 0 && `${set.childSetCount} set${set.childSetCount !== 1 ? "s" : ""}`}
+                  {set.childSetCount > 0 && set.deckCount > 0 && " · "}
+                  {set.deckCount > 0 && `${set.deckCount} deck${set.deckCount !== 1 ? "s" : ""}`}
+                  {set.childSetCount === 0 && set.deckCount === 0 && "Empty"}
+                </span>
+              </div>
+              <div className="deck-item-buttons">
+                <button
+                  className="deck-delete-btn"
+                  onClick={(e) => handleDeleteSet(set.id, e)}
+                  aria-label={`Delete set ${set.name}`}
+                  title="Delete set"
+                >
+                  ✕
+                </button>
+              </div>
+            </li>
+          ))}
+
+          {/* Decks at current level */}
           {decks.map((deck) => {
             const d = { id: deck.id, name: deck.name, cardCount: deck.cardCount };
             return (

@@ -2,6 +2,7 @@ type Query {
   getUserByID(ID: ID!): User!
   me: User
   myDecks: [Deck!]!
+  browse(parentSetId: ID): BrowseResult!
   deck(id: ID!, offset: Int, limit: Int): Deck
   quizQuestions(deckId: ID!, offset: Int, limit: Int): QuizPage!
 }
@@ -11,8 +12,9 @@ type Mutation {
   login(username: String!, password: String!): AuthResult!
   refreshSession: AuthResult!
   logout: Boolean!
-  uploadDeck(name: String!, fileContent: String!, shuffle: Boolean): Deck!
+  uploadApkg(fileContent: String!, shuffle: Boolean): Int!
   deleteDeck(id: ID!): Boolean!
+  deleteDeckSet(id: ID!): Boolean!
 }
 
 type User {
@@ -23,6 +25,20 @@ type User {
 type AuthResult {
   accessToken: String!
   User: User!
+}
+
+type DeckSet {
+  id: ID!
+  name: String!
+  createdAt: String!
+  parentId: ID
+  childSetCount: Int!
+  deckCount: Int!
+}
+
+type BrowseResult {
+  sets: [DeckSet!]!
+  decks: [Deck!]!
 }
 
 type Deck {

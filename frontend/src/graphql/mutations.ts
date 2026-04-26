@@ -42,19 +42,20 @@ export const LOGOUT_MUTATION = gql`
   }
 `;
 
-export const UPLOAD_DECK_MUTATION = gql`
-  mutation UploadDeck($name: String!, $fileContent: String!, $shuffle: Boolean) {
-    uploadDeck(name: $name, fileContent: $fileContent, shuffle: $shuffle) {
-      id
-      name
-      cardCount
-      createdAt
-    }
+export const UPLOAD_APKG_MUTATION = gql`
+  mutation UploadApkg($fileContent: String!, $shuffle: Boolean) {
+    uploadApkg(fileContent: $fileContent, shuffle: $shuffle)
   }
 `;
 
 export const DELETE_DECK_MUTATION = gql`
   mutation DeleteDeck($id: ID!) {
     deleteDeck(id: $id)
+  }
+`;
+
+export const DELETE_SET_MUTATION = gql`
+  mutation DeleteDeckSet($id: ID!) {
+    deleteDeckSet(id: $id)
   }
 `;

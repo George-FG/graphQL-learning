@@ -22,7 +22,7 @@ export const runHttpServer = async (server: ApolloServer<GraphQLContext>) => {
       origin: "http://localhost:5173",
       credentials: true,
     }),
-    express.json(),
+    express.json({ limit: "50mb" }),
     expressMiddleware(server, {
       context: async ({ req, res }) => ({
         req,

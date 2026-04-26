@@ -20,6 +20,27 @@ export const MY_DECKS_QUERY = gql`
   }
 `;
 
+export const BROWSE_QUERY = gql`
+  query Browse($parentSetId: ID) {
+    browse(parentSetId: $parentSetId) {
+      sets {
+        id
+        name
+        createdAt
+        parentId
+        childSetCount
+        deckCount
+      }
+      decks {
+        id
+        name
+        cardCount
+        createdAt
+      }
+    }
+  }
+`;
+
 export const DECK_QUERY = gql`
   query Deck($id: ID!, $offset: Int, $limit: Int) {
     deck(id: $id, offset: $offset, limit: $limit) {
