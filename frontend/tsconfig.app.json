@@ -22,7 +22,7 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "@generated/*": ["../backend/api/src/lib/types/*"]
+      "@generated/*": ["./src/lib/generated"]
     }
   },
   "include": ["src"]

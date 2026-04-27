@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@generated': path.resolve(__dirname, '../backend/api/src/lib/types')
+      '@generated': path.resolve(__dirname, 'src/lib/generated')
     }
   }
 })
