@@ -12,7 +12,7 @@ export const REFRESH_COOKIE_NAME = "refreshToken";
 export const refreshCookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as "none" | "lax",
   maxAge: REFRESH_TOKEN_TTL_MS,
   path: "/",
 };
