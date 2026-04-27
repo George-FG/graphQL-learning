@@ -482,6 +482,160 @@ export const resolvers: Resolvers<GraphQLContext> = {
       const questions = await buildQuizQuestions(questionCards, distractorPool);
       return { questions, totalCards };
     },
+
+    examHistory: async (_parent, args, context) => {
+      if (!context.authUser) throw new Error("Not authenticated");
+      const userId = BigInt(context.authUser.userId);
+
+      // Period filter → createdAt >=
+      const now = new Date();
+      let since: Date | undefined;
+      switch (args.period ?? "all") {
+        case "today": {
+          since = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        }
+        case "24h": since = new Date(now.getTime() - 24 * 60 * 60 * 1000); break;
+        case "7d":  since = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000); break;
+        case "30d": since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); break;
+        default: since = undefined;
+      }
+
+      const sessions = await prisma.examSession.findMany({
+        where: {
+          userId,
+          ...(args.deckId ? { deckId: BigInt(args.deckId) } : {}),
+          ...(args.setId  ? { setId:  BigInt(args.setId)  } : {}),
+          ...(!args.deckId && !args.setId ? {} : {}),
+          ...(since ? { createdAt: { gte: since } } : {}),
+        },
+        include: {
+          answers: { select: { wasCorrect: true, timeSecs: true } },
+          deck: { select: { name: true } },
+          deckSet: { select: { name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      });
+
+      return sessions.map((s) => {
+        const answered = s.answers.length;
+        const correct = s.answers.filter((a) => a.wasCorrect).length;
+        const totalTime = s.answers.reduce((sum, a) => sum + a.timeSecs, 0);
+        return {
+          id: s.id.toString(),
+          createdAt: s.createdAt.toISOString(),
+          totalCards: s.totalCards,
+          answeredCount: answered,
+          correctCount: correct,
+          pctCorrect: answered > 0 ? Math.round((correct / answered) * 1000) / 10 : 0,
+          avgTimeSecs: answered > 0 ? Math.round((totalTime / answered) * 10) / 10 : 0,
+          isRandom: s.seed != null,
+          sourceName: s.deck?.name ?? s.deckSet?.name ?? "Unknown",
+        };
+      });
+    },
+
+    examSessionDetail: async (_parent, args, context) => {
+      if (!context.authUser) throw new Error("Not authenticated");
+      const session = await prisma.examSession.findFirst({
+        where: { id: BigInt(args.id), userId: BigInt(context.authUser.userId) },
+        include: {
+          answers: { orderBy: { id: "asc" } },
+          deck: { select: { name: true } },
+          deckSet: { select: { name: true } },
+        },
+      });
+      if (!session) throw new Error("Session not found");
+
+      const answered = session.answers.length;
+      const correct = session.answers.filter((a) => a.wasCorrect).length;
+      const totalTime = session.answers.reduce((sum, a) => sum + a.timeSecs, 0);
+
+      return {
+        id: session.id.toString(),
+        createdAt: session.createdAt.toISOString(),
+        totalCards: session.totalCards,
+        answeredCount: answered,
+        correctCount: correct,
+        pctCorrect: answered > 0 ? Math.round((correct / answered) * 1000) / 10 : 0,
+        avgTimeSecs: answered > 0 ? Math.round((totalTime / answered) * 10) / 10 : 0,
+        isRandom: session.seed != null,
+        sourceName: session.deck?.name ?? session.deckSet?.name ?? "Unknown",
+        answers: session.answers.map((a) => ({
+          cardId: a.cardId?.toString() ?? undefined,
+          front: a.front,
+          wasCorrect: a.wasCorrect,
+          timeSecs: a.timeSecs,
+        })),
+      };
+    },
+
+    examAggregate: async (_parent, args, context) => {
+      if (!context.authUser) throw new Error("Not authenticated");
+      const userId = BigInt(context.authUser.userId);
+
+      const now = new Date();
+      let since: Date | undefined;
+      switch (args.period ?? "all") {
+        case "today": {
+          since = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        }
+        case "24h": since = new Date(now.getTime() - 24 * 60 * 60 * 1000); break;
+        case "7d":  since = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000); break;
+        case "30d": since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); break;
+        case "week": {
+          const d = new Date(now);
+          d.setDate(d.getDate() - d.getDay());
+          d.setHours(0, 0, 0, 0);
+          since = d;
+          break;
+        }
+        case "month": {
+          since = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        }
+        default: since = undefined;
+      }
+
+      const sessions = await prisma.examSession.findMany({
+        where: {
+          userId,
+          ...(args.deckId ? { deckId: BigInt(args.deckId) } : {}),
+          ...(args.setId  ? { setId:  BigInt(args.setId)  } : {}),
+          ...(since ? { createdAt: { gte: since } } : {}),
+        },
+        include: {
+          answers: { orderBy: { id: "asc" } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      });
+
+      const allAnswers = sessions.flatMap((s) =>
+        s.answers.map((a) => ({
+          cardId: a.cardId?.toString() ?? undefined,
+          front: a.front,
+          wasCorrect: a.wasCorrect,
+          timeSecs: a.timeSecs,
+          sessionDate: s.createdAt.toISOString(),
+        }))
+      );
+
+      const totalAnswered = allAnswers.length;
+      const correctCount = allAnswers.filter((a) => a.wasCorrect).length;
+      const totalTime = allAnswers.reduce((sum, a) => sum + a.timeSecs, 0);
+
+      return {
+        totalAnswered,
+        correctCount,
+        pctCorrect: totalAnswered > 0 ? Math.round((correctCount / totalAnswered) * 1000) / 10 : 0,
+        avgTimeSecs: totalAnswered > 0 ? Math.round((totalTime / totalAnswered) * 10) / 10 : 0,
+        sessionCount: sessions.length,
+        answers: allAnswers,
+      };
+    },
   },
 
   Mutation: {
@@ -736,6 +890,38 @@ export const resolvers: Resolvers<GraphQLContext> = {
 
       // Cascade in DB handles all children sets and decks
       await prisma.deckSet.delete({ where: { id: set.id } });
+      return true;
+    },
+
+    startExamSession: async (_parent, args, context) => {
+      if (!context.authUser) throw new Error("Not authenticated");
+      const session = await prisma.examSession.create({
+        data: {
+          userId: BigInt(context.authUser.userId),
+          deckId: args.deckId ? BigInt(args.deckId) : null,
+          setId: args.setId ? BigInt(args.setId) : null,
+          seed: args.seed ?? null,
+          totalCards: args.totalCards,
+        },
+      });
+      return session.id.toString();
+    },
+
+    recordExamAnswer: async (_parent, args, context) => {
+      if (!context.authUser) throw new Error("Not authenticated");
+      const session = await prisma.examSession.findFirst({
+        where: { id: BigInt(args.sessionId), userId: BigInt(context.authUser.userId) },
+      });
+      if (!session) throw new Error("Session not found");
+      await prisma.examAnswer.create({
+        data: {
+          sessionId: BigInt(args.sessionId),
+          cardId: args.cardId ? BigInt(args.cardId) : null,
+          front: args.front,
+          wasCorrect: args.wasCorrect,
+          timeSecs: args.timeSecs,
+        },
+      });
       return true;
     },
   },

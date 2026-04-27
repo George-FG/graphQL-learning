@@ -7,12 +7,13 @@ datasource db {
 }
 
 model User {
-  id           BigInt        @id @default(autoincrement())
-  username     String        @unique
-  passwordHash String        @map("password_hash")
+  id           BigInt         @id @default(autoincrement())
+  username     String         @unique
+  passwordHash String         @map("password_hash")
   sessions     UserSession[]
   decks        Deck[]
   deckSets     DeckSet[]
+  examSessions ExamSession[]
 
   @@map("users")
 }
@@ -33,15 +34,16 @@ model UserSession {
 }
 
 model DeckSet {
-  id        BigInt    @id @default(autoincrement())
-  userId    BigInt    @map("user_id")
-  parentId  BigInt?   @map("parent_id")
-  name      String
-  createdAt DateTime  @default(now()) @map("created_at")
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  parent    DeckSet?  @relation("SetChildren", fields: [parentId], references: [id], onDelete: Cascade)
-  children  DeckSet[] @relation("SetChildren")
-  decks     Deck[]
+  id           BigInt        @id @default(autoincrement())
+  userId       BigInt        @map("user_id")
+  parentId     BigInt?       @map("parent_id")
+  name         String
+  createdAt    DateTime      @default(now()) @map("created_at")
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent       DeckSet?      @relation("SetChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children     DeckSet[]     @relation("SetChildren")
+  decks        Deck[]
+  examSessions ExamSession[]
 
   @@index([userId])
   @@index([parentId])
@@ -49,14 +51,15 @@ model DeckSet {
 }
 
 model Deck {
-  id          BigInt   @id @default(autoincrement())
-  userId      BigInt   @map("user_id")
-  deckSetId   BigInt?  @map("deck_set_id")
-  name        String
-  createdAt   DateTime @default(now()) @map("created_at")
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  deckSet     DeckSet? @relation(fields: [deckSetId], references: [id], onDelete: Cascade)
-  cards       Card[]
+  id           BigInt        @id @default(autoincrement())
+  userId       BigInt        @map("user_id")
+  deckSetId    BigInt?       @map("deck_set_id")
+  name         String
+  createdAt    DateTime      @default(now()) @map("created_at")
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deckSet      DeckSet?      @relation(fields: [deckSetId], references: [id], onDelete: Cascade)
+  cards        Card[]
+  examSessions ExamSession[]
 
   @@index([userId])
   @@index([deckSetId])
@@ -64,14 +67,51 @@ model Deck {
 }
 
 model Card {
-  id           BigInt  @id @default(autoincrement())
-  deckId       BigInt  @map("deck_id")
+  id           BigInt        @id @default(autoincrement())
+  deckId       BigInt        @map("deck_id")
   front        String
   back         String
   position     Int
-  distractors  String? // JSON array of LLM-generated distractor strings, cached
-  deck         Deck    @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  distractors  String?       // JSON MCQSet cache
+  deck         Deck          @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  examAnswers  ExamAnswer[]
 
   @@index([deckId])
   @@map("cards")
+}
+
+// ── Exam history ────────────────────────────────────────────────
+
+model ExamSession {
+  id         BigInt       @id @default(autoincrement())
+  userId     BigInt       @map("user_id")
+  deckId     BigInt?      @map("deck_id")   // set when exam started on a deck
+  setId      BigInt?      @map("set_id")    // set when exam started on a set
+  seed       Int?                           // non-null → random mode
+  totalCards Int          @map("total_cards")
+  createdAt  DateTime     @default(now()) @map("created_at")
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deck       Deck?        @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  deckSet    DeckSet?     @relation(fields: [setId], references: [id], onDelete: Cascade)
+  answers    ExamAnswer[]
+
+  @@index([userId])
+  @@index([deckId])
+  @@index([setId])
+  @@map("exam_sessions")
+}
+
+model ExamAnswer {
+  id         BigInt      @id @default(autoincrement())
+  sessionId  BigInt      @map("session_id")
+  cardId     BigInt?     @map("card_id")    // nullable — null if card deleted
+  front      String                         // snapshot of question shown
+  wasCorrect Boolean     @map("was_correct")
+  timeSecs   Int         @map("time_secs")
+  session    ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  card       Card?       @relation(fields: [cardId], references: [id], onDelete: SetNull)
+
+  @@index([sessionId])
+  @@index([cardId])
+  @@map("exam_answers")
 }

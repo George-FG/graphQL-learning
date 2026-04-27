@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState, startTransition } from "react";
-import { useLazyQuery } from "@apollo/client/react";
+import { useLazyQuery, useMutation } from "@apollo/client/react";
 import { QUIZ_QUESTIONS_QUERY, QUIZ_QUESTIONS_FOR_SET_QUERY } from "../graphql/queries";
-import type { Query, QueryQuizQuestionsArgs, QueryQuizQuestionsForSetArgs, QuizQuestion } from "@generated/generated";
+import { START_EXAM_SESSION_MUTATION, RECORD_EXAM_ANSWER_MUTATION } from "../graphql/mutations";
+import type { Mutation, MutationStartExamSessionArgs, MutationRecordExamAnswerArgs, Query, QueryQuizQuestionsArgs, QueryQuizQuestionsForSetArgs, QuizQuestion } from "@generated/generated";
 
 const BATCH_SIZE = 2;
 
 type QuizResponse = Pick<Query, "quizQuestions">;
 type QuizSetResponse = Pick<Query, "quizQuestionsForSet">;
+type StartSessionResponse = Pick<Mutation, "startExamSession">;
+type RecordAnswerResponse = Pick<Mutation, "recordExamAnswer">;
 
 type AnswerState = "unanswered" | "correct" | "wrong";
 
@@ -55,6 +58,7 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
 
   const [resumeAsked, setResumeAsked] = useState(savedIndex > 0);
   const [baseOffset, setBaseOffset] = useState(0);
+  const sessionIdRef = useRef<string | null>(null);
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [qIndex, setQIndex] = useState(0);
@@ -75,6 +79,8 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
   const [fetchSetQuestions, { data: setData }] = useLazyQuery<QuizSetResponse, QueryQuizQuestionsForSetArgs>(
     QUIZ_QUESTIONS_FOR_SET_QUERY, { fetchPolicy: "network-only" }
   );
+  const [startSession] = useMutation<StartSessionResponse, MutationStartExamSessionArgs>(START_EXAM_SESSION_MUTATION);
+  const [recordAnswer] = useMutation<RecordAnswerResponse, MutationRecordExamAnswerArgs>(RECORD_EXAM_ANSWER_MUTATION);
 
   const fetchedData = source.type === "deck"
     ? deckData?.quizQuestions
@@ -103,10 +109,21 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
     }
   };
 
-  // Fetch first batch once resume decision is made
+  // Fetch first batch once resume decision is made + start session
   useEffect(() => {
     if (resumeAsked) return;
     fetchBatch(baseOffset);
+    // Start tracking session (fire-and-forget, store id in ref)
+    void startSession({
+      variables: {
+        deckId: source.type === "deck" ? source.id : undefined,
+        setId: source.type === "set" ? source.id : undefined,
+        seed: seed ?? undefined,
+        totalCards,
+      },
+    }).then((res) => {
+      sessionIdRef.current = res.data?.startExamSession ?? null;
+    }).catch(() => {/* non-critical */});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeAsked, baseOffset]);
 
@@ -144,6 +161,21 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
     setAvgSeconds((prev) =>
       prev === null ? elapsed : Math.round((prev * totalAnswered + elapsed) / (totalAnswered + 1))
     );
+
+    // Record answer in history (fire-and-forget)
+    if (sessionIdRef.current) {
+      // cardId is the correctOptionId when it's the card's own id (not a distractor)
+      const cardId = question.correctOptionId;
+      void recordAnswer({
+        variables: {
+          sessionId: sessionIdRef.current,
+          cardId,
+          front: question.front,
+          wasCorrect: isCorrect,
+          timeSecs: elapsed,
+        },
+      }).catch(() => {/* non-critical */});
+    }
   };
 
   const handleNext = () => {

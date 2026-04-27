@@ -5,6 +5,7 @@ import { DELETE_DECK_MUTATION, DELETE_SET_MUTATION } from "../graphql/mutations"
 import { BROWSE_QUERY } from "../graphql/queries";
 import FlashcardViewer from "../components/FlashcardViewer";
 import ExamMode from "../components/ExamMode";
+import HistorySidebar from "../components/HistorySidebar";
 import type { Mutation, MutationDeleteDeckArgs, MutationDeleteDeckSetArgs, Query } from "@generated/generated";
 
 type BrowseResponse = Pick<Query, "browse">;
@@ -96,7 +97,9 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="decks-page">
+    <div className="browse-layout">
+      {/* ── Main content ── */}
+      <div className="browse-main">
       <div className="decks-header">
         {/* Breadcrumb navigation */}
         <nav className="breadcrumb" aria-label="Set navigation">
@@ -233,6 +236,12 @@ export default function LandingPage() {
           onClose={() => setActiveSession(null)}
         />
       )}
+      </div>{/* /.browse-main */}
+
+      {/* ── History sidebar ── */}
+      <HistorySidebar
+        setId={currentSetId ?? null}
+      />
     </div>
   );
 }

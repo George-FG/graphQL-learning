@@ -59,3 +59,15 @@ export const DELETE_SET_MUTATION = gql`
     deleteDeckSet(id: $id)
   }
 `;
+
+export const START_EXAM_SESSION_MUTATION = gql`
+  mutation StartExamSession($deckId: ID, $setId: ID, $seed: Int, $totalCards: Int!) {
+    startExamSession(deckId: $deckId, setId: $setId, seed: $seed, totalCards: $totalCards)
+  }
+`;
+
+export const RECORD_EXAM_ANSWER_MUTATION = gql`
+  mutation RecordExamAnswer($sessionId: ID!, $cardId: ID!, $front: String!, $wasCorrect: Boolean!, $timeSecs: Int!) {
+    recordExamAnswer(sessionId: $sessionId, cardId: $cardId, front: $front, wasCorrect: $wasCorrect, timeSecs: $timeSecs)
+  }
+`;

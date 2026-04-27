@@ -6,6 +6,9 @@ type Query {
   deck(id: ID!, offset: Int, limit: Int): Deck
   quizQuestions(deckId: ID!, offset: Int, limit: Int, seed: Int): QuizPage!
   quizQuestionsForSet(setId: ID!, offset: Int, limit: Int, seed: Int): QuizPage!
+  examHistory(deckId: ID, setId: ID, period: String): [ExamSessionSummary!]!
+  examSessionDetail(id: ID!): ExamSessionDetail
+  examAggregate(deckId: ID, setId: ID, period: String): ExamAggregate!
 }
 
 type Mutation {
@@ -16,6 +19,8 @@ type Mutation {
   uploadApkg(fileContent: String!, shuffle: Boolean): Int!
   deleteDeck(id: ID!): Boolean!
   deleteDeckSet(id: ID!): Boolean!
+  startExamSession(deckId: ID, setId: ID, seed: Int, totalCards: Int!): ID!
+  recordExamAnswer(sessionId: ID!, cardId: ID!, front: String!, wasCorrect: Boolean!, timeSecs: Int!): Boolean!
 }
 
 type User {
@@ -73,4 +78,55 @@ type QuizQuestion {
 type QuizOption {
   id: ID!
   text: String!
+}
+
+# ── Exam history ──────────────────────────────────────────────────
+
+type ExamSessionSummary {
+  id: ID!
+  createdAt: String!
+  totalCards: Int!
+  answeredCount: Int!
+  correctCount: Int!
+  pctCorrect: Float!
+  avgTimeSecs: Float!
+  isRandom: Boolean!
+  sourceName: String!
+}
+
+type ExamAnswerDetail {
+  cardId: ID
+  front: String!
+  wasCorrect: Boolean!
+  timeSecs: Int!
+}
+
+type ExamSessionDetail {
+  id: ID!
+  createdAt: String!
+  totalCards: Int!
+  answeredCount: Int!
+  correctCount: Int!
+  pctCorrect: Float!
+  avgTimeSecs: Float!
+  isRandom: Boolean!
+  sourceName: String!
+  answers: [ExamAnswerDetail!]!
+}
+
+type AggregatedAnswer {
+  cardId: ID
+  front: String!
+  wasCorrect: Boolean!
+  timeSecs: Int!
+  sessionDate: String!
+}
+
+type ExamAggregate {
+  totalAnswered: Int!
+  correctCount: Int!
+  pctCorrect: Float!
+  avgTimeSecs: Float!
+  sessionCount: Int!
+  answers: [AggregatedAnswer!]!
 }

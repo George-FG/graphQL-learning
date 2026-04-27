@@ -91,3 +91,60 @@ export const QUIZ_QUESTIONS_FOR_SET_QUERY = gql`
     }
   }
 `;
+
+export const EXAM_HISTORY_QUERY = gql`
+  query ExamHistory($deckId: ID, $setId: ID, $period: String) {
+    examHistory(deckId: $deckId, setId: $setId, period: $period) {
+      id
+      createdAt
+      totalCards
+      answeredCount
+      correctCount
+      pctCorrect
+      avgTimeSecs
+      isRandom
+      sourceName
+    }
+  }
+`;
+
+export const EXAM_SESSION_DETAIL_QUERY = gql`
+  query ExamSessionDetail($id: ID!) {
+    examSessionDetail(id: $id) {
+      id
+      createdAt
+      totalCards
+      answeredCount
+      correctCount
+      pctCorrect
+      avgTimeSecs
+      isRandom
+      sourceName
+      answers {
+        cardId
+        front
+        wasCorrect
+        timeSecs
+      }
+    }
+  }
+`;
+
+export const EXAM_AGGREGATE_QUERY = gql`
+  query ExamAggregate($deckId: ID, $setId: ID, $period: String) {
+    examAggregate(deckId: $deckId, setId: $setId, period: $period) {
+      totalAnswered
+      correctCount
+      pctCorrect
+      avgTimeSecs
+      sessionCount
+      answers {
+        cardId
+        front
+        wasCorrect
+        timeSecs
+        sessionDate
+      }
+    }
+  }
+`;
