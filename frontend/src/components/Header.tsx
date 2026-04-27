@@ -29,7 +29,7 @@ export default function Header() {
     <>
       <header className="app-header">
         <Link to="/" className="header-logo">
-          Fish App
+          Examify
         </Link>
 
         <nav className="header-nav">

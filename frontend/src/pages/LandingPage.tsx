@@ -91,7 +91,7 @@ export default function LandingPage() {
   if (!isLoggedIn) {
     return (
       <div className="home-empty landing-welcome">
-        <h2>Welcome to Fish App</h2>
+        <h2>Welcome to Examify</h2>
         <p>Log in or sign up to start studying your Anki decks.</p>
       </div>
     );
