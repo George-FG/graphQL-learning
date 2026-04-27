@@ -37,27 +37,31 @@ function formatOptionText(text: string): string {
 }
 
 export default function ExamMode({ source, name, totalCards, seed, onClose }: Props) {
-  const storageKey = source.type === "deck"
-    ? `examProgress_deck_${source.id}`
-    : `examProgress_set_${source.id}`;
+  // Separate keys so exam-mode and random-mode progress never collide.
+  const storageKey = `examProgress_${seed != null ? "random" : "exam"}_${source.type}_${source.id}`;
 
-  const savedIndex = useMemo(() => {
-    if (seed != null) return 0; // random mode: always start fresh
+  const savedProgress = useMemo(() => {
     try {
       const raw = localStorage.getItem(storageKey);
-      if (!raw) return 0;
-      const parsed = JSON.parse(raw) as { lastIndex: number };
-      return typeof parsed.lastIndex === "number" &&
-        parsed.lastIndex > 0 &&
-        parsed.lastIndex < totalCards
-        ? parsed.lastIndex
-        : 0;
-    } catch { return 0; }
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as { lastIndex?: number; seed?: number };
+      const idx = parsed.lastIndex;
+      if (typeof idx !== "number" || idx <= 0 || idx >= totalCards) return null;
+      if (seed != null) {
+        // Random mode: only resumable if we stored the exact same-deck seed.
+        return typeof parsed.seed === "number"
+          ? { lastIndex: idx, storedSeed: parsed.seed }
+          : null;
+      }
+      return { lastIndex: idx } as { lastIndex: number; storedSeed?: number };
+    } catch { return null; }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [resumeAsked, setResumeAsked] = useState(savedIndex > 0);
+  const [resumeAsked, setResumeAsked] = useState(savedProgress !== null);
   const [baseOffset, setBaseOffset] = useState(0);
+  // In random mode the stored seed overrides the newly-generated prop seed on resume.
+  const [effectiveSeed, setEffectiveSeed] = useState<number | undefined>(seed);
   const sessionIdRef = useRef<string | null>(null);
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -103,9 +107,9 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
     if (offset >= totalCards) return;
     fetchedOffsets.current.add(offset);
     if (source.type === "deck") {
-      void fetchDeckQuestions({ variables: { deckId: source.id, offset, limit: BATCH_SIZE, seed } });
+      void fetchDeckQuestions({ variables: { deckId: source.id, offset, limit: BATCH_SIZE, seed: effectiveSeed } });
     } else {
-      void fetchSetQuestions({ variables: { setId: source.id, offset, limit: BATCH_SIZE, seed } });
+      void fetchSetQuestions({ variables: { setId: source.id, offset, limit: BATCH_SIZE, seed: effectiveSeed } });
     }
   };
 
@@ -121,7 +125,7 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
       variables: {
         deckId: source.type === "deck" ? source.id : undefined,
         setId: source.type === "set" ? source.id : undefined,
-        seed: seed ?? undefined,
+        seed: effectiveSeed,
         totalCards,
       },
     }).then((res) => {
@@ -183,7 +187,10 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
 
   const handleNext = () => {
     try {
-      localStorage.setItem(storageKey, JSON.stringify({ lastIndex: globalIndex + 1 }));
+      const entry = effectiveSeed != null
+        ? { lastIndex: globalIndex + 1, seed: effectiveSeed }
+        : { lastIndex: globalIndex + 1 };
+      localStorage.setItem(storageKey, JSON.stringify(entry));
     } catch { /* ignore */ }
     setSelected(null);
     setAnswerState("unanswered");
@@ -196,7 +203,10 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
   };
 
   const handleResume = () => {
-    setBaseOffset(savedIndex);
+    if (savedProgress) {
+      setBaseOffset(savedProgress.lastIndex);
+      if (savedProgress.storedSeed != null) setEffectiveSeed(savedProgress.storedSeed);
+    }
     setResumeAsked(false);
   };
 
@@ -219,11 +229,11 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
         >
           <h2 id="resume-title">{name}</h2>
           <p className="modal-subtitle">
-            You left off at <strong>question {savedIndex + 1}</strong> of {totalCards}.
+            You left off at <strong>question {savedProgress!.lastIndex + 1}</strong> of {totalCards}.
           </p>
           <div className="modal-actions">
             <button className="secondary-button" onClick={handleStartOver}>Start Over</button>
-            <button className="primary-button" onClick={handleResume}>Resume from Q{savedIndex + 1}</button>
+            <button className="primary-button" onClick={handleResume}>Resume from Q{savedProgress!.lastIndex + 1}</button>
           </div>
         </div>
       </div>
