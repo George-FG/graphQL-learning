@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@apollo/client/react";
 import { EXAM_AGGREGATE_QUERY } from "../graphql/queries";
 import type { Query, QueryExamAggregateArgs } from "@generated/generated";
@@ -31,6 +31,20 @@ export default function HistorySidebar({ deckId, setId }: Props) {
 
   const agg = data?.examAggregate;
 
+  // Group answers by deck for the breakdown list
+  const deckGroups = useMemo(() => {
+    const answers = agg?.answers ?? [];
+    const map = new Map<string, { deckId: string; deckName: string; total: number; correct: number }>();
+    for (const a of answers) {
+      if (!a.deckId || !a.deckName) continue;
+      if (!map.has(a.deckId)) map.set(a.deckId, { deckId: a.deckId, deckName: a.deckName, total: 0, correct: 0 });
+      const g = map.get(a.deckId)!;
+      g.total++;
+      if (a.wasCorrect) g.correct++;
+    }
+    return [...map.values()].sort((a, b) => a.deckName.localeCompare(b.deckName));
+  }, [agg]);
+
   return (
     <>
       <aside className="history-sidebar">
@@ -57,7 +71,7 @@ export default function HistorySidebar({ deckId, setId }: Props) {
           ))}
         </div>
 
-        {/* Compact stats */}
+        {/* Compact overall stats */}
         <div className="history-sidebar-stats">
           {loading && !agg && (
             <p className="history-empty">Loading…</p>
@@ -90,6 +104,24 @@ export default function HistorySidebar({ deckId, setId }: Props) {
             </>
           )}
         </div>
+
+        {/* Per-deck breakdown (only shown when >1 deck) */}
+        {deckGroups.length > 1 && (
+          <div className="history-deck-list">
+            {deckGroups.map((g) => {
+              const pct = Math.round((g.correct / g.total) * 100);
+              return (
+                <div key={g.deckId} className="history-deck-row">
+                  <span className="history-deck-name" title={g.deckName}>{g.deckName}</span>
+                  <span className={`history-deck-pct ${pct >= 60 ? "history-pct--good" : "history-pct--poor"}`}>
+                    {pct}%
+                  </span>
+                  <span className="history-deck-count">{g.total}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
         {agg && agg.totalAnswered > 0 && (
           <button

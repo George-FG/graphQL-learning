@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@apollo/client/react";
 import { EXAM_AGGREGATE_QUERY } from "../graphql/queries";
 import type { Query, QueryExamAggregateArgs } from "@generated/generated";
@@ -46,6 +46,21 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
     filter === "all"     ? answers :
     filter === "correct" ? answers.filter((a) => a.wasCorrect) :
                            answers.filter((a) => !a.wasCorrect);
+
+  // Group filtered answers by deck, preserving first-seen order
+  const deckGroups = useMemo(() => {
+    const order: string[] = [];
+    const map = new Map<string, { deckId: string; deckName: string; answers: typeof filtered }>();
+    for (const a of filtered) {
+      const key = a.deckId ?? "__unknown__";
+      const label = a.deckName ?? "Unknown deck";
+      if (!map.has(key)) { order.push(key); map.set(key, { deckId: key, deckName: label, answers: [] }); }
+      map.get(key)!.answers.push(a);
+    }
+    return order.map((k) => map.get(k)!);
+  }, [filtered]);
+
+  const multiDeck = deckGroups.length > 1;
 
   return (
     <>
@@ -115,7 +130,7 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
           ))}
         </div>
 
-        {/* Answer list */}
+        {/* Answer list — grouped by deck when multiple decks present */}
         <div className="history-fs-answers">
           {loading && filtered.length === 0 && (
             <p className="history-empty">Loading…</p>
@@ -123,24 +138,34 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
           {!loading && filtered.length === 0 && (
             <p className="history-empty">No answers for this period.</p>
           )}
-          {filtered.map((a, i) => (
-            <div
-              key={i}
-              className={`history-answer-row ${a.wasCorrect ? "history-answer-row--correct" : "history-answer-row--wrong"} ${a.cardId ? "history-answer-row--clickable" : ""}`}
-              onClick={() => a.cardId ? setSelectedCard({ cardId: a.cardId, wasCorrect: a.wasCorrect, selectedOptionId: a.selectedOptionId }) : undefined}
-              role={a.cardId ? "button" : undefined}
-              tabIndex={a.cardId ? 0 : undefined}
-              onKeyDown={a.cardId ? (e) => e.key === "Enter" && setSelectedCard({ cardId: a.cardId!, wasCorrect: a.wasCorrect, selectedOptionId: a.selectedOptionId }) : undefined}
-            >
-              <span className="history-answer-icon">{a.wasCorrect ? "✓" : "✗"}</span>
-              <span
-                className="history-answer-front"
-                dangerouslySetInnerHTML={{ __html: a.front }}
-              />
-              <div className="history-answer-meta">
-                <span className="history-answer-time">{a.timeSecs}s</span>
-                <span className="history-answer-date">{fmtDate(a.sessionDate)}</span>
-              </div>
+          {deckGroups.map((group) => (
+            <div key={group.deckId}>
+              {multiDeck && (
+                <div className="history-fs-deck-header">
+                  <span className="history-fs-deck-name">📚 {group.deckName}</span>
+                  <span className="history-fs-deck-count">{group.answers.length} answered</span>
+                </div>
+              )}
+              {group.answers.map((a, i) => (
+                <div
+                  key={i}
+                  className={`history-answer-row ${a.wasCorrect ? "history-answer-row--correct" : "history-answer-row--wrong"} ${a.cardId ? "history-answer-row--clickable" : ""}`}
+                  onClick={() => a.cardId ? setSelectedCard({ cardId: a.cardId, wasCorrect: a.wasCorrect, selectedOptionId: a.selectedOptionId }) : undefined}
+                  role={a.cardId ? "button" : undefined}
+                  tabIndex={a.cardId ? 0 : undefined}
+                  onKeyDown={a.cardId ? (e) => e.key === "Enter" && setSelectedCard({ cardId: a.cardId!, wasCorrect: a.wasCorrect, selectedOptionId: a.selectedOptionId }) : undefined}
+                >
+                  <span className="history-answer-icon">{a.wasCorrect ? "✓" : "✗"}</span>
+                  <span
+                    className="history-answer-front"
+                    dangerouslySetInnerHTML={{ __html: a.front }}
+                  />
+                  <div className="history-answer-meta">
+                    <span className="history-answer-time">{a.timeSecs}s</span>
+                    <span className="history-answer-date">{fmtDate(a.sessionDate)}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           ))}
         </div>

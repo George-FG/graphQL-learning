@@ -19,6 +19,8 @@ export type Scalars = {
 export type AggregatedAnswer = {
   __typename?: 'AggregatedAnswer';
   cardId?: Maybe<Scalars['ID']['output']>;
+  deckId?: Maybe<Scalars['ID']['output']>;
+  deckName?: Maybe<Scalars['String']['output']>;
   front: Scalars['String']['output'];
   selectedOptionId?: Maybe<Scalars['ID']['output']>;
   sessionDate: Scalars['String']['output'];
@@ -392,6 +394,8 @@ export type ResolversParentTypes = {
 
 export type AggregatedAnswerResolvers<ContextType = any, ParentType extends ResolversParentTypes['AggregatedAnswer'] = ResolversParentTypes['AggregatedAnswer']> = {
   cardId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  deckId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
+  deckName?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   front?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   selectedOptionId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   sessionDate?: Resolver<ResolversTypes['String'], ParentType, ContextType>;

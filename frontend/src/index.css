@@ -444,6 +444,50 @@ a:hover {
   border-color: #93c5fd;
 }
 
+/* Per-deck breakdown in sidebar */
+.history-deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  max-height: 160px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 8px;
+}
+
+.history-deck-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  border-radius: 6px;
+  font-size: 0.73rem;
+}
+
+.history-deck-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #334155;
+  font-weight: 500;
+}
+
+.history-deck-pct {
+  font-weight: 700;
+  font-size: 0.73rem;
+  flex-shrink: 0;
+}
+
+.history-deck-count {
+  color: #94a3b8;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+  min-width: 22px;
+  text-align: right;
+}
+
 .history-empty {
   font-size: 0.82rem;
   color: #94a3b8;
@@ -596,6 +640,33 @@ a:hover {
 }
 
 /* Answer list */
+/* Deck subheading inside fullscreen answer list */
+.history-fs-deck-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0 4px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 6px;
+}
+
+.history-fs-deck-header:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.history-fs-deck-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.history-fs-deck-count {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
 .history-fs-answers {
   flex: 1 1 0;
   overflow-y: auto;

@@ -123,6 +123,8 @@ type AggregatedAnswer {
   timeSecs: Int!
   sessionDate: String!
   selectedOptionId: ID
+  deckId: ID
+  deckName: String
 }
 
 type ExamAggregate {

@@ -145,6 +145,8 @@ export const EXAM_AGGREGATE_QUERY = gql`
         timeSecs
         sessionDate
         selectedOptionId
+        deckId
+        deckName
       }
     }
   }
