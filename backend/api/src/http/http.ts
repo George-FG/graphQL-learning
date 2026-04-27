@@ -8,7 +8,7 @@ import { getAuthUserFromHeaders } from "../lib/auth";
 
 export const runHttpServer = async (server: ApolloServer<GraphQLContext>) => {
   const app = express();
-  const port = 3000;
+  const port = process.env.PORT ?? 3000;
 
   app.get("/", (_req, res) => {
     res.send("Hello World!");
@@ -19,7 +19,7 @@ export const runHttpServer = async (server: ApolloServer<GraphQLContext>) => {
   app.use(
     "/graphql",
     cors({
-      origin: "http://localhost:5173",
+      origin: process.env.CORS_ORIGIN,
       credentials: true,
     }),
     express.json({ limit: "50mb" }),
