@@ -20,6 +20,7 @@ export type AggregatedAnswer = {
   __typename?: 'AggregatedAnswer';
   cardId?: Maybe<Scalars['ID']['output']>;
   front: Scalars['String']['output'];
+  selectedOptionId?: Maybe<Scalars['ID']['output']>;
   sessionDate: Scalars['String']['output'];
   timeSecs: Scalars['Int']['output'];
   wasCorrect: Scalars['Boolean']['output'];
@@ -79,6 +80,7 @@ export type ExamAnswerDetail = {
   __typename?: 'ExamAnswerDetail';
   cardId?: Maybe<Scalars['ID']['output']>;
   front: Scalars['String']['output'];
+  selectedOptionId?: Maybe<Scalars['ID']['output']>;
   timeSecs: Scalars['Int']['output'];
   wasCorrect: Scalars['Boolean']['output'];
 };
@@ -143,6 +145,7 @@ export type MutationLoginArgs = {
 export type MutationRecordExamAnswerArgs = {
   cardId: Scalars['ID']['input'];
   front: Scalars['String']['input'];
+  selectedOptionId?: InputMaybe<Scalars['ID']['input']>;
   sessionId: Scalars['ID']['input'];
   timeSecs: Scalars['Int']['input'];
   wasCorrect: Scalars['Boolean']['input'];
@@ -171,6 +174,7 @@ export type MutationUploadApkgArgs = {
 export type Query = {
   __typename?: 'Query';
   browse: BrowseResult;
+  cardQuestion?: Maybe<QuizQuestion>;
   deck?: Maybe<Deck>;
   examAggregate: ExamAggregate;
   examHistory: Array<ExamSessionSummary>;
@@ -185,6 +189,11 @@ export type Query = {
 
 export type QueryBrowseArgs = {
   parentSetId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryCardQuestionArgs = {
+  cardId: Scalars['ID']['input'];
 };
 
 
@@ -384,6 +393,7 @@ export type ResolversParentTypes = {
 export type AggregatedAnswerResolvers<ContextType = any, ParentType extends ResolversParentTypes['AggregatedAnswer'] = ResolversParentTypes['AggregatedAnswer']> = {
   cardId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   front?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  selectedOptionId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   sessionDate?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   timeSecs?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   wasCorrect?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
@@ -436,6 +446,7 @@ export type ExamAggregateResolvers<ContextType = any, ParentType extends Resolve
 export type ExamAnswerDetailResolvers<ContextType = any, ParentType extends ResolversParentTypes['ExamAnswerDetail'] = ResolversParentTypes['ExamAnswerDetail']> = {
   cardId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   front?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  selectedOptionId?: Resolver<Maybe<ResolversTypes['ID']>, ParentType, ContextType>;
   timeSecs?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   wasCorrect?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
 };
@@ -479,6 +490,7 @@ export type MutationResolvers<ContextType = any, ParentType extends ResolversPar
 
 export type QueryResolvers<ContextType = any, ParentType extends ResolversParentTypes['Query'] = ResolversParentTypes['Query']> = {
   browse?: Resolver<ResolversTypes['BrowseResult'], ParentType, ContextType, Partial<QueryBrowseArgs>>;
+  cardQuestion?: Resolver<Maybe<ResolversTypes['QuizQuestion']>, ParentType, ContextType, RequireFields<QueryCardQuestionArgs, 'cardId'>>;
   deck?: Resolver<Maybe<ResolversTypes['Deck']>, ParentType, ContextType, RequireFields<QueryDeckArgs, 'id'>>;
   examAggregate?: Resolver<ResolversTypes['ExamAggregate'], ParentType, ContextType, Partial<QueryExamAggregateArgs>>;
   examHistory?: Resolver<Array<ResolversTypes['ExamSessionSummary']>, ParentType, ContextType, Partial<QueryExamHistoryArgs>>;

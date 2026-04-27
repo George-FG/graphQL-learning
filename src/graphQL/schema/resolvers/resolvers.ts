@@ -567,6 +567,7 @@ export const resolvers: Resolvers<GraphQLContext> = {
           front: a.front,
           wasCorrect: a.wasCorrect,
           timeSecs: a.timeSecs,
+          selectedOptionId: a.selectedOptionId ?? undefined,
         })),
       };
     },
@@ -605,6 +606,7 @@ export const resolvers: Resolvers<GraphQLContext> = {
           ...(args.deckId ? { deckId: BigInt(args.deckId) } : {}),
           ...(args.setId  ? { setId:  BigInt(args.setId)  } : {}),
           ...(since ? { createdAt: { gte: since } } : {}),
+          answers: { some: {} },  // exclude sessions with no recorded answers
         },
         include: {
           answers: { orderBy: { id: "asc" } },
@@ -620,6 +622,7 @@ export const resolvers: Resolvers<GraphQLContext> = {
           wasCorrect: a.wasCorrect,
           timeSecs: a.timeSecs,
           sessionDate: s.createdAt.toISOString(),
+          selectedOptionId: a.selectedOptionId ?? undefined,
         }))
       );
 
@@ -635,6 +638,31 @@ export const resolvers: Resolvers<GraphQLContext> = {
         sessionCount: sessions.length,
         answers: allAnswers,
       };
+    },
+
+    cardQuestion: async (_parent, args, context) => {
+      if (!context.authUser) throw new Error("Not authenticated");
+      const userId = BigInt(context.authUser.userId);
+
+      // Fetch the card (verify ownership via deck → user)
+      const card = await prisma.card.findFirst({
+        where: {
+          id: BigInt(args.cardId),
+          deck: { userId },
+        },
+        select: { id: true, front: true, back: true, position: true, distractors: true, deckId: true },
+      });
+      if (!card) return undefined;
+
+      // Fetch sibling cards from the same deck as the distractor pool
+      const siblings = await prisma.card.findMany({
+        where: { deckId: card.deckId, id: { not: card.id } },
+        select: { id: true, front: true, back: true, position: true, distractors: true },
+        take: 50,
+      });
+
+      const [question] = await buildQuizQuestions([card], siblings);
+      return question ?? undefined;
     },
   },
 
@@ -920,6 +948,7 @@ export const resolvers: Resolvers<GraphQLContext> = {
           front: args.front,
           wasCorrect: args.wasCorrect,
           timeSecs: args.timeSecs,
+          selectedOptionId: args.selectedOptionId ?? null,
         },
       });
       return true;

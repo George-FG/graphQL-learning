@@ -2,17 +2,10 @@ import { useState } from "react";
 import { useQuery } from "@apollo/client/react";
 import { EXAM_AGGREGATE_QUERY } from "../graphql/queries";
 import type { Query, QueryExamAggregateArgs } from "@generated/generated";
+import CardQuestionModal from "./CardQuestionModal";
+import { type Period, PERIODS } from "../lib/historyPeriods";
 
 type AggResponse = Pick<Query, "examAggregate">;
-
-type Period = "today" | "24h" | "7d" | "30d" | "week" | "month" | "all";
-export const PERIODS: { label: string; value: Period }[] = [
-  { label: "Today",    value: "today" },
-  { label: "24h",      value: "24h" },
-  { label: "Week",     value: "week" },
-  { label: "Month",    value: "month" },
-  { label: "All time", value: "all" },
-];
 
 type Filter = "all" | "correct" | "wrong";
 
@@ -33,6 +26,7 @@ function fmtDate(iso: string): string {
 export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClose }: Props) {
   const [period, setPeriod] = useState<Period>(initialPeriod);
   const [filter, setFilter] = useState<Filter>("all");
+  const [selectedCard, setSelectedCard] = useState<{ cardId: string; wasCorrect: boolean; selectedOptionId?: string | null } | null>(null);
 
   const { data, loading } = useQuery<AggResponse, QueryExamAggregateArgs>(
     EXAM_AGGREGATE_QUERY,
@@ -54,6 +48,7 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
                            answers.filter((a) => !a.wasCorrect);
 
   return (
+    <>
     <div className="history-fullscreen-backdrop" onClick={onClose}>
       <div
         className="history-fullscreen"
@@ -131,7 +126,11 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
           {filtered.map((a, i) => (
             <div
               key={i}
-              className={`history-answer-row ${a.wasCorrect ? "history-answer-row--correct" : "history-answer-row--wrong"}`}
+              className={`history-answer-row ${a.wasCorrect ? "history-answer-row--correct" : "history-answer-row--wrong"} ${a.cardId ? "history-answer-row--clickable" : ""}`}
+              onClick={() => a.cardId ? setSelectedCard({ cardId: a.cardId, wasCorrect: a.wasCorrect, selectedOptionId: a.selectedOptionId }) : undefined}
+              role={a.cardId ? "button" : undefined}
+              tabIndex={a.cardId ? 0 : undefined}
+              onKeyDown={a.cardId ? (e) => e.key === "Enter" && setSelectedCard({ cardId: a.cardId!, wasCorrect: a.wasCorrect, selectedOptionId: a.selectedOptionId }) : undefined}
             >
               <span className="history-answer-icon">{a.wasCorrect ? "✓" : "✗"}</span>
               <span
@@ -147,5 +146,15 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
         </div>
       </div>
     </div>
+
+    {selectedCard && (
+      <CardQuestionModal
+        cardId={selectedCard.cardId}
+        wasCorrect={selectedCard.wasCorrect}
+        selectedOptionId={selectedCard.selectedOptionId ?? undefined}
+        onClose={() => setSelectedCard(null)}
+      />
+    )}
+    </>
   );
 }

@@ -144,6 +144,21 @@ export const EXAM_AGGREGATE_QUERY = gql`
         wasCorrect
         timeSecs
         sessionDate
+        selectedOptionId
+      }
+    }
+  }
+`;
+
+export const CARD_QUESTION_QUERY = gql`
+  query CardQuestion($cardId: ID!) {
+    cardQuestion(cardId: $cardId) {
+      cardId
+      front
+      correctOptionId
+      options {
+        id
+        text
       }
     }
   }

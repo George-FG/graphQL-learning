@@ -113,7 +113,10 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
   useEffect(() => {
     if (resumeAsked) return;
     fetchBatch(baseOffset);
-    // Start tracking session (fire-and-forget, store id in ref)
+    // Only start if we haven't already (guards against React StrictMode double-invoke)
+    if (sessionIdRef.current !== null) return;
+    // Sentinel so the second StrictMode invocation skips the mutation
+    sessionIdRef.current = "pending";
     void startSession({
       variables: {
         deckId: source.type === "deck" ? source.id : undefined,
@@ -123,7 +126,7 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
       },
     }).then((res) => {
       sessionIdRef.current = res.data?.startExamSession ?? null;
-    }).catch(() => {/* non-critical */});
+    }).catch(() => { sessionIdRef.current = null; });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeAsked, baseOffset]);
 
@@ -164,7 +167,6 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
 
     // Record answer in history (fire-and-forget)
     if (sessionIdRef.current) {
-      // cardId is the correctOptionId when it's the card's own id (not a distractor)
       const cardId = question.correctOptionId;
       void recordAnswer({
         variables: {
@@ -173,6 +175,7 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
           front: question.front,
           wasCorrect: isCorrect,
           timeSecs: elapsed,
+          selectedOptionId: selected,
         },
       }).catch(() => {/* non-critical */});
     }

@@ -67,7 +67,7 @@ export const START_EXAM_SESSION_MUTATION = gql`
 `;
 
 export const RECORD_EXAM_ANSWER_MUTATION = gql`
-  mutation RecordExamAnswer($sessionId: ID!, $cardId: ID!, $front: String!, $wasCorrect: Boolean!, $timeSecs: Int!) {
-    recordExamAnswer(sessionId: $sessionId, cardId: $cardId, front: $front, wasCorrect: $wasCorrect, timeSecs: $timeSecs)
+  mutation RecordExamAnswer($sessionId: ID!, $cardId: ID!, $front: String!, $wasCorrect: Boolean!, $timeSecs: Int!, $selectedOptionId: ID) {
+    recordExamAnswer(sessionId: $sessionId, cardId: $cardId, front: $front, wasCorrect: $wasCorrect, timeSecs: $timeSecs, selectedOptionId: $selectedOptionId)
   }
 `;

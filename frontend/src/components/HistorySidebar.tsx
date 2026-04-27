@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useQuery } from "@apollo/client/react";
 import { EXAM_AGGREGATE_QUERY } from "../graphql/queries";
 import type { Query, QueryExamAggregateArgs } from "@generated/generated";
-import HistoryFullscreen, { PERIODS } from "./HistoryFullscreen";
+import HistoryFullscreen from "./HistoryFullscreen";
+import { type Period, PERIODS } from "../lib/historyPeriods";
 
 type AggResponse = Pick<Query, "examAggregate">;
-type Period = "today" | "24h" | "7d" | "30d" | "week" | "month" | "all";
 
 type Props = {
   deckId?: string | null;

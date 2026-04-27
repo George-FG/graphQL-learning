@@ -102,14 +102,15 @@ model ExamSession {
 }
 
 model ExamAnswer {
-  id         BigInt      @id @default(autoincrement())
-  sessionId  BigInt      @map("session_id")
-  cardId     BigInt?     @map("card_id")    // nullable — null if card deleted
-  front      String                         // snapshot of question shown
-  wasCorrect Boolean     @map("was_correct")
-  timeSecs   Int         @map("time_secs")
-  session    ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  card       Card?       @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  id               BigInt      @id @default(autoincrement())
+  sessionId        BigInt      @map("session_id")
+  cardId           BigInt?     @map("card_id")    // nullable — null if card deleted
+  front            String                         // snapshot of question shown
+  wasCorrect       Boolean     @map("was_correct")
+  timeSecs         Int         @map("time_secs")
+  selectedOptionId String?     @map("selected_option_id")  // which option was chosen
+  session          ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  card             Card?       @relation(fields: [cardId], references: [id], onDelete: SetNull)
 
   @@index([sessionId])
   @@index([cardId])
