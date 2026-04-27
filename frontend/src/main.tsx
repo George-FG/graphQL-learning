@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { ApolloProvider } from "@apollo/client/react";
 import { BrowserRouter } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import App from "./App";
 import { apolloClient } from "./lib/apollo";
 import { AuthBootstrapProvider } from "./context/AuthBootstrap";
@@ -16,5 +17,6 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         </AuthBootstrapProvider>
       </BrowserRouter>
     </ApolloProvider>
+    <Analytics />
   </React.StrictMode>
 );
