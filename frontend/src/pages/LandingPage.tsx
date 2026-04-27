@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useMutation, useQuery } from "@apollo/client/react";
+import { useMutation, useQuery, useApolloClient } from "@apollo/client/react";
 import { useAuthBootstrap } from "../context/AuthBootstrap";
 import { DELETE_DECK_MUTATION, DELETE_SET_MUTATION } from "../graphql/mutations";
-import { BROWSE_QUERY } from "../graphql/queries";
+import { BROWSE_QUERY, EXAM_AGGREGATE_QUERY } from "../graphql/queries";
 import FlashcardViewer from "../components/FlashcardViewer";
 import ExamMode from "../components/ExamMode";
 import HistorySidebar from "../components/HistorySidebar";
@@ -20,6 +20,7 @@ type BreadcrumbEntry = { id: string | null; name: string };
 
 export default function LandingPage() {
   const { isLoggedIn } = useAuthBootstrap();
+  const client = useApolloClient();
   const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
   const [currentSetId, setCurrentSetId] = useState<string | null>(null);
   const [breadcrumb, setBreadcrumb] = useState<BreadcrumbEntry[]>([
@@ -233,7 +234,10 @@ export default function LandingPage() {
           name={activeSession.name}
           totalCards={activeSession.totalCards}
           seed={activeSession.seed}
-          onClose={() => setActiveSession(null)}
+          onClose={() => {
+            setActiveSession(null);
+            void client.refetchQueries({ include: [EXAM_AGGREGATE_QUERY] });
+          }}
         />
       )}
       </div>{/* /.browse-main */}

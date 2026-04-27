@@ -13,7 +13,7 @@ type Props = {
 };
 
 export default function HistorySidebar({ deckId, setId }: Props) {
-  const [period, setPeriod] = useState<Period>("7d");
+  const [period, setPeriod] = useState<Period>("today");
   const [fullscreen, setFullscreen] = useState(false);
 
   const { data, loading } = useQuery<AggResponse, QueryExamAggregateArgs>(

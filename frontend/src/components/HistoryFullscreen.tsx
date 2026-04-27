@@ -28,7 +28,7 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedCard, setSelectedCard] = useState<{ cardId: string; wasCorrect: boolean; selectedOptionId?: string | null } | null>(null);
 
-  const { data, loading } = useQuery<AggResponse, QueryExamAggregateArgs>(
+  const { data, loading, refetch } = useQuery<AggResponse, QueryExamAggregateArgs>(
     EXAM_AGGREGATE_QUERY,
     {
       variables: {
@@ -152,7 +152,7 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
         cardId={selectedCard.cardId}
         wasCorrect={selectedCard.wasCorrect}
         selectedOptionId={selectedCard.selectedOptionId ?? undefined}
-        onClose={() => setSelectedCard(null)}
+        onClose={() => { setSelectedCard(null); void refetch(); }}
       />
     )}
     </>
