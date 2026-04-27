@@ -20,6 +20,7 @@
     "build": "rimraf ./dist && tsc && copyfiles --up 1 **/*.graphql ./dist ",
     "dev": "npm run build && node --env-file=.env dist/index.js",
     "start": "npm run build && node --env-file=.env.production dist/index.js",
+    "start:render": "npm run build && node dist/index.js",
     "migrate:dev": "dotenv -e .env -- prisma migrate dev",
     "migrate:prod": "dotenv -e .env.production -- prisma migrate deploy",
     "codegen": "graphql-codegen",
