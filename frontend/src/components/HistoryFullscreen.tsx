@@ -95,7 +95,7 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
     if (closing && e.target === e.currentTarget) onClose();
   };
 
-  const { data, loading, refetch } = useQuery<AggResponse, QueryExamAggregateArgs>(
+  const { data, loading } = useQuery<AggResponse, QueryExamAggregateArgs>(
     EXAM_AGGREGATE_QUERY,
     {
       variables: {
