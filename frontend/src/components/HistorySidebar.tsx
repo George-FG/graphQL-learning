@@ -31,7 +31,6 @@ export default function HistorySidebar({ deckId, setId }: Props) {
 
   const agg = data?.examAggregate;
 
-  // Group answers by deck for the breakdown list
   const deckGroups = useMemo(() => {
     const answers = agg?.answers ?? [];
     const map = new Map<string, { deckId: string; deckName: string; total: number; correct: number }>();
@@ -48,89 +47,85 @@ export default function HistorySidebar({ deckId, setId }: Props) {
   return (
     <>
       <aside className="history-sidebar">
-        {/* Clickable header — opens fullscreen */}
+        {/* Expand-to-fullscreen arrow — left edge strip */}
         <button
-          className="history-sidebar-expand-btn"
+          className="history-sidebar-handle"
           onClick={() => setFullscreen(true)}
-          title="Expand history"
+          aria-label="Open full history"
+          title="See all questions"
         >
-          <span className="history-sidebar-title">History</span>
-          <span className="history-sidebar-expand-icon">⤢</span>
+          <span className="history-sidebar-handle-arrow">‹</span>
         </button>
 
-        {/* Period tabs */}
-        <div className="history-period-tabs">
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              className={`history-period-tab ${period === p.value ? "history-period-tab--active" : ""}`}
-              onClick={() => setPeriod(p.value)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Compact overall stats */}
-        <div className="history-sidebar-stats">
-          {loading && !agg && (
-            <p className="history-empty">Loading…</p>
-          )}
-          {!loading && agg && agg.totalAnswered === 0 && (
-            <p className="history-empty">No sessions yet.</p>
-          )}
-          {agg && agg.totalAnswered > 0 && (
-            <>
-              <div className="history-sidebar-stat">
-                <span
-                  className={`history-sidebar-stat-value ${agg.pctCorrect >= 60 ? "history-pct--good" : "history-pct--poor"}`}
-                >
-                  {agg.pctCorrect}%
-                </span>
-                <span className="history-sidebar-stat-label">correct</span>
-              </div>
-              <div className="history-sidebar-stat">
-                <span className="history-sidebar-stat-value">{agg.avgTimeSecs}s</span>
-                <span className="history-sidebar-stat-label">avg time</span>
-              </div>
-              <div className="history-sidebar-stat">
-                <span className="history-sidebar-stat-value">{agg.totalAnswered}</span>
-                <span className="history-sidebar-stat-label">answered</span>
-              </div>
-              <div className="history-sidebar-stat">
-                <span className="history-sidebar-stat-value">{agg.sessionCount}</span>
-                <span className="history-sidebar-stat-label">sessions</span>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Per-deck breakdown (only shown when >1 deck) */}
-        {deckGroups.length > 1 && (
-          <div className="history-deck-list">
-            {deckGroups.map((g) => {
-              const pct = Math.round((g.correct / g.total) * 100);
-              return (
-                <div key={g.deckId} className="history-deck-row">
-                  <span className="history-deck-name" title={g.deckName}>{g.deckName}</span>
-                  <span className={`history-deck-pct ${pct >= 60 ? "history-pct--good" : "history-pct--poor"}`}>
-                    {pct}%
-                  </span>
-                  <span className="history-deck-count">{g.total}</span>
-                </div>
-              );
-            })}
+        {/* Always-visible content */}
+        <div className="history-sidebar-content">
+          <div className="history-sidebar-header">
+            <span className="history-sidebar-title">History</span>
           </div>
-        )}
 
-        {agg && agg.totalAnswered > 0 && (
-          <button
-            className="history-sidebar-see-all"
-            onClick={() => setFullscreen(true)}
-          >
-            See all questions →
-          </button>
-        )}
+          {/* Period tabs */}
+          <div className="history-period-tabs">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                className={`history-period-tab ${period === p.value ? "history-period-tab--active" : ""}`}
+                onClick={() => setPeriod(p.value)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Stats */}
+          <div className="history-sidebar-stats">
+            {loading && !agg && (
+              <p className="history-empty">Loading…</p>
+            )}
+            {!loading && agg && agg.totalAnswered === 0 && (
+              <p className="history-empty">No sessions yet.</p>
+            )}
+            {agg && agg.totalAnswered > 0 && (
+              <>
+                <div className="history-sidebar-stat">
+                  <span className={`history-sidebar-stat-value ${agg.pctCorrect >= 60 ? "history-pct--good" : "history-pct--poor"}`}>
+                    {agg.pctCorrect}%
+                  </span>
+                  <span className="history-sidebar-stat-label">correct</span>
+                </div>
+                <div className="history-sidebar-stat">
+                  <span className="history-sidebar-stat-value">{agg.avgTimeSecs}s</span>
+                  <span className="history-sidebar-stat-label">avg time</span>
+                </div>
+                <div className="history-sidebar-stat">
+                  <span className="history-sidebar-stat-value">{agg.totalAnswered}</span>
+                  <span className="history-sidebar-stat-label">answered</span>
+                </div>
+                <div className="history-sidebar-stat">
+                  <span className="history-sidebar-stat-value">{agg.sessionCount}</span>
+                  <span className="history-sidebar-stat-label">sessions</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Per-deck breakdown */}
+          {deckGroups.length > 1 && (
+            <div className="history-deck-list">
+              {deckGroups.map((g) => {
+                const pct = Math.round((g.correct / g.total) * 100);
+                return (
+                  <div key={g.deckId} className="history-deck-row">
+                    <span className="history-deck-name" title={g.deckName}>{g.deckName}</span>
+                    <span className={`history-deck-pct ${pct >= 60 ? "history-pct--good" : "history-pct--poor"}`}>
+                      {pct}%
+                    </span>
+                    <span className="history-deck-count">{g.total}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </aside>
 
       {fullscreen && (

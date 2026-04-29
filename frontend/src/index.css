@@ -387,13 +387,14 @@ a:hover {
   display: flex;
   align-items: flex-start;
   gap: 24px;
-  padding: 28px 32px;
+  padding: 28px 0 0 32px;
   width: 100%;
 }
 
 .browse-main {
   flex: 1 1 0;
   min-width: 0;
+  padding-bottom: 28px;
 }
 
 /* ── Breadcrumb ──────────────────────────────────────────────── */
@@ -570,36 +571,77 @@ a:hover {
 
 /* ── History sidebar ─────────────────────────────────────────── */
 .history-sidebar {
-  flex: 0 0 220px;
-  width: 220px;
-  background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-md);
-  padding: 12px;
+  flex: 0 0 280px;
   position: sticky;
   top: 72px;
-  max-height: calc(100vh - 92px);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  /* height is viewport-relative; overflow:hidden stops it adding page height */
+  height: calc(100vh - 100px);
   overflow: hidden;
+  align-self: flex-start;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-right: none;
+  border-radius: var(--r-md) 0 0 var(--r-md);
+  display: flex;
+  flex-direction: row;
 }
 
-.history-sidebar-expand-btn {
+/* Expand arrow — left edge strip */
+.history-sidebar-handle {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   background: none;
   border: none;
-  padding: 4px 2px;
+  border-right: 1px solid var(--c-border);
   cursor: pointer;
-  width: 100%;
-  border-radius: var(--r-sm);
+  padding: 0;
   transition: background 0.12s;
 }
 
-.history-sidebar-expand-btn:hover {
+.history-sidebar-handle:hover {
   background: var(--c-bg);
+}
+
+.history-sidebar-handle-arrow {
+  font-size: 1rem;
+  color: var(--c-text-faint);
+  line-height: 1;
+  transition: color 0.12s, transform 0.12s;
+}
+
+.history-sidebar-handle:hover .history-sidebar-handle-arrow {
+  color: var(--c-primary);
+  transform: translateX(-2px);
+}
+
+/* Content — always visible */
+.history-sidebar-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 10px 16px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border-strong) transparent;
+}
+
+.history-sidebar-content::-webkit-scrollbar { width: 4px; }
+.history-sidebar-content::-webkit-scrollbar-track { background: transparent; }
+.history-sidebar-content::-webkit-scrollbar-thumb {
+  background: var(--c-border-strong);
+  border-radius: 999px;
+}
+
+.history-sidebar-header {
+  display: flex;
+  align-items: center;
 }
 
 .history-sidebar-title {
@@ -608,11 +650,6 @@ a:hover {
   color: var(--c-text);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-}
-
-.history-sidebar-expand-icon {
-  font-size: 0.875rem;
-  color: var(--c-text-faint);
 }
 
 /* Period tabs */
@@ -702,29 +739,9 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  overflow-y: auto;
-  max-height: 140px;
+  overflow-y: visible;
   border-top: 1px solid var(--c-border);
   padding-top: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--c-border-strong) transparent;
-}
-
-.history-deck-list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.history-deck-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.history-deck-list::-webkit-scrollbar-thumb {
-  background: var(--c-border-strong);
-  border-radius: 999px;
-}
-
-.history-deck-list::-webkit-scrollbar-thumb:hover {
-  background: var(--c-text-faint);
 }
 
 .history-deck-row {
@@ -1699,10 +1716,15 @@ a:hover {
   }
 
   .history-sidebar {
-    flex: none;
-    width: 100%;
+    flex: none !important;
+    width: 100% !important;
+    height: auto;
     position: static;
-    max-height: none;
+    border-radius: var(--r-md);
+  }
+
+  .history-sidebar-handle {
+    display: none;
   }
 
   .history-fullscreen {
