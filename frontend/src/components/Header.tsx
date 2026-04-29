@@ -45,14 +45,7 @@ export default function Header() {
         </Link>
 
         <nav className="header-nav">
-          <button
-            className="header-btn-ghost header-btn-icon"
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
-            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-            title={theme === "dark" ? "Light mode" : "Dark mode"}
-          >
-            {theme === "dark" ? "☀" : "☾"}
-          </button>
+          
           {!isLoggedIn ? (
             <>
               <button
@@ -82,6 +75,14 @@ export default function Header() {
               </button>
             </>
           )}
+          <button
+            className="header-btn-ghost header-btn-icon"
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {theme === "dark" ? "☀" : "☾"}
+          </button>
         </nav>
       </header>
 

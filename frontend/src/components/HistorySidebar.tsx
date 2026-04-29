@@ -134,6 +134,7 @@ export default function HistorySidebar({ deckId, setId }: Props) {
           setId={setId}
           initialPeriod={period}
           onClose={() => setFullscreen(false)}
+          onPeriodChange={(p) => setPeriod(p)}
         />
       )}
     </>
