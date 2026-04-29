@@ -27,6 +27,15 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
   const [period, setPeriod] = useState<Period>(initialPeriod);
   const [filter, setFilter] = useState<Filter>("all");
   const [selectedCard, setSelectedCard] = useState<{ cardId: string; wasCorrect: boolean; selectedOptionId?: string | null } | null>(null);
+  const [closing, setClosing] = useState(false);
+
+  const handleClose = () => {
+    setClosing(true);
+  };
+
+  const handleAnimationEnd = () => {
+    if (closing) onClose();
+  };
 
   const { data, loading, refetch } = useQuery<AggResponse, QueryExamAggregateArgs>(
     EXAM_AGGREGATE_QUERY,
@@ -64,9 +73,13 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
 
   return (
     <>
-    <div className="history-fullscreen-backdrop" onClick={onClose}>
+    <div
+      className={`history-fullscreen-backdrop ${closing ? "history-fullscreen-backdrop--closing" : ""}`}
+      onClick={handleClose}
+      onAnimationEnd={handleAnimationEnd}
+    >
       <div
-        className="history-fullscreen"
+        className={`history-fullscreen ${closing ? "history-fullscreen--closing" : ""}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -75,7 +88,7 @@ export default function HistoryFullscreen({ deckId, setId, initialPeriod, onClos
         {/* Header */}
         <div className="history-fs-header">
           <h2 className="history-fs-title">History</h2>
-          <button className="flashcard-close" onClick={onClose} aria-label="Close">✕</button>
+          <button className="flashcard-close" onClick={handleClose} aria-label="Close">✕</button>
         </div>
 
         {/* Period tabs */}

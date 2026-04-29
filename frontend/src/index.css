@@ -810,6 +810,23 @@ a:hover {
 }
 
 /* ── History fullscreen ──────────────────────────────────────── */
+@keyframes backdrop-in {
+  from { background: rgba(0, 0, 0, 0); }
+  to   { background: rgba(0, 0, 0, 0.4); }
+}
+@keyframes backdrop-out {
+  from { background: rgba(0, 0, 0, 0.4); }
+  to   { background: rgba(0, 0, 0, 0); }
+}
+@keyframes panel-in {
+  from { transform: translateX(calc(100% - 280px)); }
+  to   { transform: translateX(0); }
+}
+@keyframes panel-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(calc(100%)); }
+}
+
 .history-fullscreen-backdrop {
   position: fixed;
   inset: 0;
@@ -818,6 +835,11 @@ a:hover {
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
+  animation: backdrop-in 0.22s ease forwards;
+}
+
+.history-fullscreen-backdrop--closing {
+  animation: backdrop-out 0.22s ease forwards;
 }
 
 .history-fullscreen {
@@ -828,6 +850,11 @@ a:hover {
   flex-direction: column;
   overflow: hidden;
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
+  animation: panel-in 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.history-fullscreen--closing {
+  animation: panel-out 0.18s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 .history-fs-header {
