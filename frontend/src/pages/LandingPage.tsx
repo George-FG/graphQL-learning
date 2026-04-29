@@ -140,7 +140,6 @@ export default function LandingPage() {
               key={set.id}
               className="deck-item deck-item--actions deck-item--set"
               onClick={() => enterSet(set)}
-              style={{ cursor: "pointer" }}
             >
               <div className="deck-item-info">
                 <span className="deck-name">📁 {set.name}</span>

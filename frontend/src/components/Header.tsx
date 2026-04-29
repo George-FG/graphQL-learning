@@ -1,5 +1,5 @@
 import { useApolloClient } from "@apollo/client/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthBootstrap } from "../context/AuthBootstrap";
 import { LOGOUT_MUTATION } from "../graphql/mutations";
@@ -8,11 +8,23 @@ import UploadDeckModal from "./UploadDeckModal";
 
 type LogoutResponse = Pick<Mutation, "logout">;
 
+function getInitialTheme(): "dark" | "light" {
+  const stored = localStorage.getItem("theme");
+  if (stored === "dark" || stored === "light") return stored;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 export default function Header() {
   const navigate = useNavigate();
   const client = useApolloClient();
   const { isLoggedIn, username, clearAuthState } = useAuthBootstrap();
   const [showUpload, setShowUpload] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">(getInitialTheme);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
 
   const handleLogout = async () => {
     try {
@@ -33,6 +45,14 @@ export default function Header() {
         </Link>
 
         <nav className="header-nav">
+          <button
+            className="header-btn-ghost header-btn-icon"
+            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {theme === "dark" ? "☀" : "☾"}
+          </button>
           {!isLoggedIn ? (
             <>
               <button
