@@ -1,8 +1,4 @@
-import { useQuery } from "@apollo/client/react";
-import { EXAM_SESSION_DETAIL_QUERY } from "../graphql/queries";
-import type { Query, QueryExamSessionDetailArgs } from "@generated/generated";
-
-type DetailResponse = Pick<Query, "examSessionDetail">;
+import { useExamSessionDetail } from "../shared/hooks";
 
 type Props = {
   sessionId: string;
@@ -17,12 +13,7 @@ function fmt(iso: string): string {
 }
 
 export default function HistoryDetail({ sessionId, onClose }: Props) {
-  const { data, loading } = useQuery<DetailResponse, QueryExamSessionDetailArgs>(
-    EXAM_SESSION_DETAIL_QUERY,
-    { variables: { id: sessionId }, fetchPolicy: "cache-and-network" }
-  );
-
-  const session = data?.examSessionDetail;
+  const { session, loading } = useExamSessionDetail(sessionId);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

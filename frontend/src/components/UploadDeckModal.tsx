@@ -1,10 +1,5 @@
 import { useRef, useState } from "react";
-import { useMutation } from "@apollo/client/react";
-import { UPLOAD_APKG_MUTATION } from "../graphql/mutations";
-import { BROWSE_QUERY } from "../graphql/queries";
-import type { Mutation, MutationUploadApkgArgs } from "@generated/generated";
-
-type UploadApkgResponse = Pick<Mutation, "uploadApkg">;
+import { useUploadApkg } from "../shared/hooks";
 
 type Props = {
   onClose: () => void;
@@ -17,12 +12,7 @@ export default function UploadDeckModal({ onClose }: Props) {
   const [localError, setLocalError] = useState("");
   const [shuffleDeck, setShuffleDeck] = useState(false);
 
-  const [uploadApkg, { loading, error }] = useMutation<
-    UploadApkgResponse,
-    MutationUploadApkgArgs
-  >(UPLOAD_APKG_MUTATION, {
-    refetchQueries: [{ query: BROWSE_QUERY, variables: { parentSetId: null } }],
-  });
+  const { uploadApkg, loading, error } = useUploadApkg();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

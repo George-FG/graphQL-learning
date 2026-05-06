@@ -1,13 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { useLazyQuery } from "@apollo/client/react";
-import { DECK_QUERY } from "../graphql/queries";
-import type { Query, QueryDeckArgs, Card } from "@generated/generated";
-
-const PAGE_SIZE = 10;
-const PREFETCH_AT = 3; // fetch next batch when this many cards remain in buffer
-
-type CardSlice = Pick<Card, "id" | "front" | "back" | "position">;
-type DeckResponse = Pick<Query, "deck">;
+import { useState } from "react";
+import { useFlashcardDeck } from "../shared/hooks";
 
 type Props = {
   deckId: string;
@@ -17,50 +9,8 @@ type Props = {
 };
 
 export default function FlashcardViewer({ deckId, deckName, totalCards, onClose }: Props) {
-  const [cards, setCards] = useState<CardSlice[]>([]);
-  const [index, setIndex] = useState(0);
+  const { cards, index, setIndex } = useFlashcardDeck(deckId, totalCards);
   const [flipped, setFlipped] = useState(false);
-
-  // Track which offsets we've already fetched or are fetching
-  const fetchedOffsets = useRef(new Set<number>());
-
-  const [fetchCards, { data: fetchedData }] = useLazyQuery<DeckResponse, QueryDeckArgs>(DECK_QUERY, {
-    fetchPolicy: "network-only",
-  });
-
-  // Merge newly fetched cards into the buffer whenever the query result changes
-  useEffect(() => {
-    const incoming = fetchedData?.deck?.cards ?? [];
-    if (incoming.length === 0) return;
-    setCards((prev) => {
-      const positions = new Set(prev.map((c) => c.position));
-      const fresh = incoming.filter((c) => !positions.has(c.position));
-      if (fresh.length === 0) return prev;
-      return [...prev, ...fresh].sort((a, b) => a.position - b.position);
-    });
-  }, [fetchedData]);
-
-  const fetch = (offset: number) => {
-    if (fetchedOffsets.current.has(offset)) return;
-    if (offset >= totalCards) return;
-    fetchedOffsets.current.add(offset);
-    void fetchCards({ variables: { id: deckId, offset, limit: PAGE_SIZE } });
-  };
-
-  // Fetch first page on mount
-  useEffect(() => {
-    fetch(0);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deckId]);
-
-  // Prefetch next page when within PREFETCH_AT cards of the buffer end
-  useEffect(() => {
-    const bufferEnd = cards.length; // next offset to fetch
-    if (index >= bufferEnd - PREFETCH_AT) {
-      fetch(bufferEnd);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, cards.length]);
 
   const isLoaded = cards.length > 0;
   const card = cards[index] ?? null;

@@ -1,19 +1,10 @@
-import { useEffect, useMemo, useRef, useState, startTransition } from "react";
-import { useLazyQuery, useMutation } from "@apollo/client/react";
-import { QUIZ_QUESTIONS_QUERY, QUIZ_QUESTIONS_FOR_SET_QUERY } from "../graphql/queries";
-import { START_EXAM_SESSION_MUTATION, RECORD_EXAM_ANSWER_MUTATION } from "../graphql/mutations";
-import type { Mutation, MutationStartExamSessionArgs, MutationRecordExamAnswerArgs, Query, QueryQuizQuestionsArgs, QueryQuizQuestionsForSetArgs, QuizQuestion } from "@generated/generated";
-
-const BATCH_SIZE = 2;
-
-type QuizResponse = Pick<Query, "quizQuestions">;
-type QuizSetResponse = Pick<Query, "quizQuestionsForSet">;
-type StartSessionResponse = Pick<Mutation, "startExamSession">;
-type RecordAnswerResponse = Pick<Mutation, "recordExamAnswer">;
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useExamSession } from "../shared/hooks";
+import type { ExamSource } from "../shared/hooks";
 
 type AnswerState = "unanswered" | "correct" | "wrong";
 
-export type ExamSource = { type: "deck"; id: string } | { type: "set"; id: string };
+export type { ExamSource };
 
 type Props = {
   source: ExamSource;
@@ -60,11 +51,6 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
 
   const [resumeAsked, setResumeAsked] = useState(savedProgress !== null);
   const [baseOffset, setBaseOffset] = useState(0);
-  // In random mode the stored seed overrides the newly-generated prop seed on resume.
-  const [effectiveSeed, setEffectiveSeed] = useState<number | undefined>(seed);
-  const sessionIdRef = useRef<string | null>(null);
-
-  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [qIndex, setQIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [answerState, setAnswerState] = useState<AnswerState>("unanswered");
@@ -75,62 +61,13 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
   const [avgSeconds, setAvgSeconds] = useState<number | null>(null);
   const questionStartRef = useRef<number>(0);
 
-  const fetchedOffsets = useRef(new Set<number>());
-
-  const [fetchDeckQuestions, { data: deckData }] = useLazyQuery<QuizResponse, QueryQuizQuestionsArgs>(
-    QUIZ_QUESTIONS_QUERY, { fetchPolicy: "network-only" }
-  );
-  const [fetchSetQuestions, { data: setData }] = useLazyQuery<QuizSetResponse, QueryQuizQuestionsForSetArgs>(
-    QUIZ_QUESTIONS_FOR_SET_QUERY, { fetchPolicy: "network-only" }
-  );
-  const [startSession] = useMutation<StartSessionResponse, MutationStartExamSessionArgs>(START_EXAM_SESSION_MUTATION);
-  const [recordAnswer] = useMutation<RecordAnswerResponse, MutationRecordExamAnswerArgs>(RECORD_EXAM_ANSWER_MUTATION);
-
-  const fetchedData = source.type === "deck"
-    ? deckData?.quizQuestions
-    : setData?.quizQuestionsForSet;
-
-  useEffect(() => {
-    const incoming = fetchedData?.questions ?? [];
-    if (incoming.length === 0) return;
-    startTransition(() => {
-      setQuestions((prev) => {
-        const existingIds = new Set(prev.map((q) => q.cardId));
-        const fresh = incoming.filter((q) => !existingIds.has(q.cardId));
-        return [...prev, ...fresh];
-      });
-    });
-  }, [fetchedData]);
-
-  const fetchBatch = (offset: number) => {
-    if (fetchedOffsets.current.has(offset)) return;
-    if (offset >= totalCards) return;
-    fetchedOffsets.current.add(offset);
-    if (source.type === "deck") {
-      void fetchDeckQuestions({ variables: { deckId: source.id, offset, limit: BATCH_SIZE, seed: effectiveSeed } });
-    } else {
-      void fetchSetQuestions({ variables: { setId: source.id, offset, limit: BATCH_SIZE, seed: effectiveSeed } });
-    }
-  };
+  const { questions, effectiveSeed, beginSession, submitAnswer, prefetchIfNeeded } = useExamSession(source, totalCards, seed);
 
   // Fetch first batch once resume decision is made + start session
   useEffect(() => {
     if (resumeAsked) return;
-    fetchBatch(baseOffset);
-    // Only start if we haven't already (guards against React StrictMode double-invoke)
-    if (sessionIdRef.current !== null) return;
-    // Sentinel so the second StrictMode invocation skips the mutation
-    sessionIdRef.current = "pending";
-    void startSession({
-      variables: {
-        deckId: source.type === "deck" ? source.id : undefined,
-        setId: source.type === "set" ? source.id : undefined,
-        seed: effectiveSeed,
-        totalCards,
-      },
-    }).then((res) => {
-      sessionIdRef.current = res.data?.startExamSession ?? null;
-    }).catch(() => { sessionIdRef.current = null; });
+    const overrideSeed = savedProgress?.storedSeed;
+    beginSession(baseOffset, overrideSeed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeAsked, baseOffset]);
 
@@ -142,9 +79,7 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
   // Prefetch next batch exactly when landing on last question of buffer
   useEffect(() => {
     if (resumeAsked) return;
-    if (questions.length > 0 && qIndex === questions.length - 1) {
-      fetchBatch(baseOffset + questions.length);
-    }
+    prefetchIfNeeded(qIndex, baseOffset);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qIndex, questions.length, resumeAsked]);
 
@@ -169,20 +104,7 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
       prev === null ? elapsed : Math.round((prev * totalAnswered + elapsed) / (totalAnswered + 1))
     );
 
-    // Record answer in history (fire-and-forget)
-    if (sessionIdRef.current) {
-      const cardId = question.correctOptionId;
-      void recordAnswer({
-        variables: {
-          sessionId: sessionIdRef.current,
-          cardId,
-          front: question.front,
-          wasCorrect: isCorrect,
-          timeSecs: elapsed,
-          selectedOptionId: selected,
-        },
-      }).catch(() => {/* non-critical */});
-    }
+    submitAnswer(question.cardId, question.front, isCorrect, elapsed, selected);
   };
 
   const handleNext = () => {
@@ -205,7 +127,6 @@ export default function ExamMode({ source, name, totalCards, seed, onClose }: Pr
   const handleResume = () => {
     if (savedProgress) {
       setBaseOffset(savedProgress.lastIndex);
-      if (savedProgress.storedSeed != null) setEffectiveSeed(savedProgress.storedSeed);
     }
     setResumeAsked(false);
   };

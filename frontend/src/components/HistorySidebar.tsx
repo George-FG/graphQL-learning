@@ -1,11 +1,7 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@apollo/client/react";
-import { EXAM_AGGREGATE_QUERY } from "../graphql/queries";
-import type { Query, QueryExamAggregateArgs } from "@generated/generated";
+import { useExamAggregate } from "../shared/hooks";
 import HistoryFullscreen from "./HistoryFullscreen";
 import { type Period, PERIODS } from "../lib/historyPeriods";
-
-type AggResponse = Pick<Query, "examAggregate">;
 
 type Props = {
   deckId?: string | null;
@@ -16,20 +12,7 @@ export default function HistorySidebar({ deckId, setId }: Props) {
   const [period, setPeriod] = useState<Period>("today");
   const [fullscreen, setFullscreen] = useState(false);
 
-  const { data, loading } = useQuery<AggResponse, QueryExamAggregateArgs>(
-    EXAM_AGGREGATE_QUERY,
-    {
-      variables: {
-        deckId: deckId ?? undefined,
-        setId: setId ?? undefined,
-        period,
-      },
-      fetchPolicy: "cache-and-network",
-      pollInterval: 30_000,
-    }
-  );
-
-  const agg = data?.examAggregate;
+  const { agg, loading } = useExamAggregate(deckId, setId, period);
 
   const deckGroups = useMemo(() => {
     const answers = agg?.answers ?? [];

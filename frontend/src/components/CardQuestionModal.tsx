@@ -1,9 +1,4 @@
-import { useLazyQuery } from "@apollo/client/react";
-import { useEffect } from "react";
-import { CARD_QUESTION_QUERY } from "../graphql/queries";
-import type { Query, QueryCardQuestionArgs } from "@generated/generated";
-
-type CardQuestionResponse = Pick<Query, "cardQuestion">;
+import { useCardQuestion } from "../shared/hooks";
 
 type Props = {
   cardId: string;
@@ -14,16 +9,7 @@ type Props = {
 };
 
 export default function CardQuestionModal({ cardId, wasCorrect, selectedOptionId, onClose }: Props) {
-  const [fetchQuestion, { data, loading }] = useLazyQuery<CardQuestionResponse, QueryCardQuestionArgs>(
-    CARD_QUESTION_QUERY,
-    { fetchPolicy: "cache-first" }
-  );
-
-  useEffect(() => {
-    fetchQuestion({ variables: { cardId } });
-  }, [cardId, fetchQuestion]);
-
-  const q = data?.cardQuestion;
+  const { question: q, loading } = useCardQuestion(cardId);
 
   function optionClass(optId: string, correctId: string): string {
     if (optId === correctId) return "card-question-option--correct";

@@ -1,19 +1,11 @@
-import { useQuery } from "@apollo/client/react";
 import { useNavigate } from "react-router-dom";
-import { ME_QUERY } from "../graphql/queries";
+import { useMe } from "../shared/hooks";
 import { clearAccessToken } from "../lib/session";
 import { clearUsername } from "../lib/auth";
-import type { Query } from "@generated/generated";
-
-type MeResponse = Pick<Query, "me">;
 
 export default function WelcomePage() {
   const navigate = useNavigate();
-  const { data, loading, error } = useQuery<MeResponse>(ME_QUERY, {
-    fetchPolicy: "network-only",
-  });
-
-  const user = data?.me ?? null;
+  const { user, loading, error } = useMe();
 
   const handleBackHome = () => {
     if (!user) {
